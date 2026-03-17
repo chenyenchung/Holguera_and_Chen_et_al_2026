@@ -11,10 +11,6 @@ options("ggrastr.default.dpi" = 450)
 
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
-# Source utility functions (soft-linked by Nextflow)
-if (file.exists("./utils.r")) {
-  source("./utils.r", chdir = FALSE)
-}
 
 ### TODO
 if (interactive()) {
@@ -33,6 +29,13 @@ if (interactive()) {
   argvs$subsample <- as.integer(argvs$subsample)
   argvs$sparse_limit <- as.integer(argvs$sparse_limit)
   syn_path <- argvs$synf
+}
+
+# Source utility functions (soft-linked by Nextflow)
+if (file.exists("./utils.r")) {
+  source("./utils.r", chdir = FALSE)
+} else {
+  source(argvs$utils, chdir = FALSE)
 }
 
 ## Load plot metadata and presets with validation

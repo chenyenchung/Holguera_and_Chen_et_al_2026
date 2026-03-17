@@ -1,6 +1,4 @@
 #!/usr/env/bin nextflow
-nextflow.preview.output = true
-
 params.synf = 'data/fafb_v783_princeton_synapse_table.csv.gz'
 params.annf = 'data/connections_princeton_no_threshold.csv.gz'
 params.typef = 'data/consolidated_cell_types.csv.gz'
@@ -9,7 +7,7 @@ process AnnotateNeuropil {
   cpus '1'
   memory '64GB'
   time '15m'
-  module 'r/gcc/4.4.0'
+  module 'r/4.5.1'
 
   input:
   path syn
@@ -34,7 +32,7 @@ process SplitNeuropil {
   cpus '1'
   memory '8GB'
   time '15m'
-  module 'r/gcc/4.4.0'
+  module 'r/4.5.1'
 
   input:
   path syn
@@ -53,7 +51,7 @@ process RotateNeuropil {
   cpus '1'
   memory '4GB'
   time '15m'
-  module 'r/gcc/4.4.0'
+  module 'r/4.5.1'
 
   input:
   tuple path(syn), path(utils)

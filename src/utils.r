@@ -99,7 +99,7 @@ scale_color_type <- function() {
     out <- unlist(xl[use_key])
     return(out)
   }
-  types <- unique(opc_anno$cell_type[opc_anno$putative_OPC])
+  types <- unique(opc_anno$cell_type)
   types <- hsort(types)
   
   hue_pal <- function(

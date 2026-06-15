@@ -121,6 +121,32 @@ scale_color_type <- function() {
   )
 }
 
+#' Color scale for spatial origin annotations
+scale_color_spatial_origin <- function() {
+  lighten <- function(hex, amount = 0.3) {
+    rgb_val <- grDevices::col2rgb(hex) / 255
+    light_rgb <- rgb_val + (1 - rgb_val) * amount
+    grDevices::rgb(light_rgb[1], light_rgb[2], light_rgb[3])
+  }
+
+  ventral <- c(
+    vVsx = "#1B9E77",
+    vOptix = "#7570B3",
+    vDpp = "#D95F02"
+  )
+  dorsal <- c(
+    dVsx = lighten(ventral[["vVsx"]]),
+    dOptix = lighten(ventral[["vOptix"]]),
+    dDpp = lighten(ventral[["vDpp"]])
+  )
+
+  f <- scale_color_manual(
+    values = c(ventral, dorsal, unknown = "grey80"),
+    breaks = c("vVsx", "dVsx", "vOptix", "dOptix", "vDpp", "dDpp", "unknown")
+  )
+  return(f)
+}
+
 #' Color scale for developmental origins (Version A - origin-level)
 #' Used for Slp/Dll comparison and mega plot
 scale_color_dev_origin <- function() {
@@ -344,6 +370,65 @@ filter_broad <- function(coord, ann, syn_type = "pre") {
   return(coord)
 }
 
+
+#' Filter coordinates by spatial origin annotations
+filter_spatial_origin <- function(coord, ann, syn_type = "pre") {
+  by_x <- ifelse(syn_type == "pre", "pre_type", "post_type")
+  spatial_cols <- c("vVsx", "vOptix", "vDpp", "dVsx", "dOptix", "dDpp")
+  missing_cols <- setdiff(spatial_cols, colnames(ann))
+  if (length(missing_cols) > 0) {
+    stop(sprintf(
+      "Missing spatial origin columns in annotation data: %s",
+      paste(missing_cols, collapse = ", ")
+    ))
+  }
+
+  is_spatial_origin <- function(x) {
+    x_chr <- toupper(trimws(as.character(x)))
+    !is.na(x_chr) & x_chr %in% c("1", "TRUE", "T", "Y", "YES")
+  }
+
+  ann_spatial <- copy(ann)
+  for (col in spatial_cols) {
+    ann_spatial[, (col) := is_spatial_origin(get(col))]
+  }
+  ann_spatial[, n_spatial_origin := rowSums(.SD), .SDcols = spatial_cols]
+
+  ambiguous <- ann_spatial[n_spatial_origin > 1, cell_type]
+  if (length(ambiguous) > 0) {
+    ambiguous_preview <- head(ambiguous, 20)
+    warning(sprintf(
+      paste(
+        "Multiple spatial origin markers found for %d cell types: %s%s.",
+        "Using the first marker in this order: %s"
+      ),
+      length(ambiguous),
+      paste(ambiguous_preview, collapse = ", "),
+      ifelse(length(ambiguous) > length(ambiguous_preview), ", ...", ""),
+      paste(spatial_cols, collapse = ", ")
+    ))
+  }
+
+  ann_spatial[, spatial_origin := "unknown"]
+  for (col in spatial_cols) {
+    ann_spatial[get(col) == TRUE & spatial_origin == "unknown", spatial_origin := col]
+  }
+  ann_spatial[, spatial_origin := factor(
+    spatial_origin,
+    levels = c("vVsx", "dVsx", "vOptix", "dOptix", "vDpp", "dDpp", "unknown")
+  )]
+
+  coord[, .row_id := .I]
+  coord <- merge(
+    coord,
+    ann_spatial[, .(cell_type, spatial_origin, Notch, newly_ann, ntype)],
+    by.x = by_x,
+    by.y = "cell_type"
+  )
+  setorder(coord, .row_id)
+  coord[, .row_id := NULL]
+  return(coord)
+}
 
 #' Filter coordinates by putative annotations
 filter_putative <- function(coord, ann, syn_type = "pre") {

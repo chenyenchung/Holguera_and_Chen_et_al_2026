@@ -261,19 +261,21 @@ output {
         'known': 'Previously_known',
         'new': 'All_confidently_annotated_highlighting_new',
         'all': 'All_confidently_annotated',
+        'spatial': 'Spatial_origin',
         'putative': 'Putative_OPC_types'
       ]
       def color_dict = [
         'temporal': 'Color_by_temporal_origin',
         'subsystem': 'Color_by_function_subsystem',
         'type': 'Color_by_cell_type',
-        'broad': 'Color_by_early_late'
+        'broad': 'Color_by_early_late',
+        'spatial': 'Color_by_spatial_origin'
       ]
       def side = input[0].split('_')[1]
       def ctype = input[1].split('_')[0]
       def subset = input[1].split('_')[1]
       def clabel = color_dict[ctype]
-      def slabel = subset_dict[subset]
+      def slabel = ctype == 'spatial' ? 'Spatial_origin' : subset_dict[subset]
       return "${clabel}/${slabel}_${side}"
     }
   }

@@ -165,6 +165,12 @@ for (i in names(np_coord)) {
   if (nrow(np_coord[[i]]) == 0) {
     next
   }
+
+  if (preset$color_by == "spatial_origin") {
+    np_coord[[i]][, .plot_order := spatial_origin == "unknown"]
+    setorder(np_coord[[i]], -.plot_order)
+    np_coord[[i]][, .plot_order := NULL]
+  }
   
   out_prefix <- paste(
     argvs$np, argvs$syn_type, argvs$use_preset, argvs$density, i,

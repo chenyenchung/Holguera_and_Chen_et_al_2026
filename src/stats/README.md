@@ -28,6 +28,15 @@ enormous number of synapses.
 - Tests if birth time and function are linked with Fisher's exact test
 - Corrects for multiple comparisons using FDR
 
+### 3. OPC Synapse Ratio Analysis
+- Computes the fraction of lobula (LO) synapses whose presynaptic or
+  postsynaptic cell type is marked as `putative_OPC` in
+  `data/visual_neurons_anno.csv`
+- Reports presynaptic and postsynaptic ratios separately for `LO_L` and `LO_R`
+- Writes `LO_opc_synapse_ratio.csv` with columns:
+  `neuropil`, `side`, `syn_type`, `opc_synapse_count`,
+  `total_synapse_count`, `opc_synapse_ratio`, `n_putative_opc_types`
+
 ## Configuration Parameters
 
 Several parameters can be tuned in the analysis, and the defaults used in

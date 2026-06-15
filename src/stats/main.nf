@@ -9,6 +9,8 @@ params.depth_stats_cppf = 'src/stats/bin/depth_stats.cpp'
 params.broad_depth_cppf = 'src/stats/bin/broad_depth.cpp'
 params.combine_scriptf = 'src/stats/bin/combine_results.r'
 params.ref_groupsf = 'data/reference_groups.csv'
+params.lo_l_synf = 'int/idv_mat/LO_L_rotated.csv.gz'
+params.lo_r_synf = 'int/idv_mat/LO_R_rotated.csv.gz'
 params.n_quantiles = 1000
 params.n_bootstrap = 1000
 params.conf_int = 95
@@ -128,6 +130,30 @@ process FunctionalEnrichment {
   script:
   """
   functional_enrichment.r --anno ${ann}
+  """
+}
+
+process OpcSynapseRatio {
+  cpus '1'
+  memory '8GB'
+  time '30m'
+  module 'r/4.5.1'
+
+  input:
+  path ann
+  path lo_l_syn
+  path lo_r_syn
+
+  output:
+  path 'LO_opc_synapse_ratio.csv', emit: csv
+
+  script:
+  """
+  opc_synapse_ratio.r \
+    --ann ${ann} \
+    --lo_l ${lo_l_syn} \
+    --lo_r ${lo_r_syn} \
+    --output LO_opc_synapse_ratio.csv
   """
 }
 
@@ -279,6 +305,13 @@ workflow {
     file(params.utilsf)
   )
 
+  // Calculate putative OPC synapse ratios in LO
+  opc_ratio_ch = OpcSynapseRatio(
+    file(params.annf),
+    file(params.lo_l_synf),
+    file(params.lo_r_synf)
+  )
+
   // Run broad depth analysis
   broad_depth_ch = BroadDepthAnalysis(
     cond_ch,
@@ -311,6 +344,7 @@ workflow {
 //  excel = combined_ch.excel
   functional_plots = functional_ch.plots
   functional_stats = functional_ch.stats
+  opc_synapse_ratio = opc_ratio_ch.csv
   broad_depth_results = broad_depth_ch
   broad_depth_summary = combined_broad_depth_ch.summary
   broad_depth_excel = combined_broad_depth_ch.excel
@@ -330,6 +364,7 @@ output {
 //  excel { path "stats/" }
   functional_plots { path "stats/functional_enrichment/" }
   functional_stats { path "stats/functional_enrichment/" }
+  opc_synapse_ratio { path "stats/opc_synapse_ratio/" }
   broad_depth_results {
     path { input ->
       def np = input[0]

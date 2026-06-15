@@ -1,5 +1,7 @@
 data/*.gz
 data/flywire_synapses_783.feather
+data/ozel_2021_objs
 int
 .Rproj.user
 custom
+demo

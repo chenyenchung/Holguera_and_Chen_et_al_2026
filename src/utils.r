@@ -47,8 +47,8 @@ scale_color_nk2023 <- function() {
 scale_color_ih2025 <- function() {
   f <- scale_color_manual(
     values = c(
-      "Early" = "#79A68C",
-      "Late" = "#7F55A2"
+      "Early" = "#0072B2",
+      "Late" = "#D55E00"
     )
   )
   return(f)

@@ -299,6 +299,25 @@ workflow {
   def MAT_PREFIX = 'int/idv_mat/'
   def SPARSE_LIMIT = params.sparse_limit
   def CALIBRATION_TYPES = normalizeCalibrationTypes(params.calibration_types)
+  def STATS_PRESETS = [
+    'temporal_known',
+    'subsystem_known',
+    'temporal_new',
+    'subsystem_new',
+    'broad_known',
+    'broad_new',
+    'temporal_all',
+    'type_putative_1',
+    'type_putative_2',
+    'type_putative_3',
+    'type_putative_4',
+    'type_putative_5',
+    'type_putative_6',
+    'type_putative_7',
+    'type_putative_8',
+    'type_putative_9',
+    'subsystem_putative'
+  ]
 
   // Create input channel
   cond_ch = channel
@@ -312,7 +331,7 @@ workflow {
       channel.fromPath(file(params.presetf))
         .splitCsv(header:true)
         .map { row -> row.preset }
-        .take( 11 )
+        .filter { preset -> preset in STATS_PRESETS }
     )
 
   reference_cond_ch = channel

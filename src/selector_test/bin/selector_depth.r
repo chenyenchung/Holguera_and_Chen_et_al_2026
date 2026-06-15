@@ -223,7 +223,7 @@ get_gene_columns <- function(data) {
   logical_cols <- names(data)[sapply(data, is.logical)]
   exclude <- c(
     "Confident_annotation", "newly_ann", "putative_OPC",
-    "putative_hl1", "putative_hl2", "putative_hl3"
+    grep("^putative_hl[0-9]+$", names(data), value = TRUE)
   )
   return(setdiff(logical_cols, exclude))
 }

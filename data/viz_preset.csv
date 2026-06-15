@@ -9,6 +9,12 @@ temporal_all,scale_color_nk2023,Temporal Origin,filter_temporal_all,temporal_lab
 type_putative_1,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl1,Y,FALSE
 type_putative_2,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl2,Y,FALSE
 type_putative_3,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl3,Y,FALSE
+type_putative_4,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl4,Y,FALSE
+type_putative_5,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl5,Y,FALSE
+type_putative_6,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl6,Y,FALSE
+type_putative_7,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl7,Y,FALSE
+type_putative_8,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl8,Y,FALSE
+type_putative_9,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,TRUE,label,putative_hl9,Y,FALSE
 subsystem_putative,scale_color_subsystem,Functional Subsystem,filter_putative,func,FALSE,FALSE,none,none,none,FALSE
 temporal_all_type,scale_color_type,Cell Type,filter_temporal_all,cell_type,TRUE,FALSE,none,none,none,FALSE
 type_putative,scale_color_type,Cell Type,filter_putative,cell_type,FALSE,FALSE,none,none,none,FALSE

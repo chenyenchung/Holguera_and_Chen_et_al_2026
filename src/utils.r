@@ -434,10 +434,14 @@ filter_spatial_origin <- function(coord, ann, syn_type = "pre") {
 filter_putative <- function(coord, ann, syn_type = "pre") {
   by_x <- ifelse(syn_type == "pre", "pre_type", "post_type")
   ann <- ann[putative_OPC == TRUE]
+  putative_hl_cols <- grep("^putative_hl[0-9]+$", names(ann), value = TRUE)
+  merge_cols <- c(
+    "cell_type", "Notch", "newly_ann", "ntype", "func", putative_hl_cols
+  )
   coord[, .row_id := .I]
   coord <- merge(
     coord,
-    ann[, .(cell_type, Notch, newly_ann, ntype, func, putative_hl1, putative_hl2, putative_hl3)],
+    ann[, ..merge_cols],
     by.x = by_x,
     by.y = "cell_type"
   )

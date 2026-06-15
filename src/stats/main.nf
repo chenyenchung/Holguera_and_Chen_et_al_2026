@@ -8,9 +8,11 @@ params.utilsf = 'src/utils.r'
 params.depth_stats_cppf = 'src/stats/bin/depth_stats.cpp'
 params.broad_depth_cppf = 'src/stats/bin/broad_depth.cpp'
 params.combine_scriptf = 'src/stats/bin/combine_results.r'
+params.reference_depth_scriptf = 'src/stats/bin/reference_depth_distribution.r'
 params.ref_groupsf = 'data/reference_groups.csv'
 params.lo_l_synf = 'int/idv_mat/LO_L_rotated.csv.gz'
 params.lo_r_synf = 'int/idv_mat/LO_R_rotated.csv.gz'
+params.calibration_types = []
 params.n_quantiles = 1000
 params.n_bootstrap = 1000
 params.conf_int = 95
@@ -245,6 +247,50 @@ process CombineBroadDepthResultsLight {
     --excel combined_broad_depth_results_light.xlsx
   """
 }
+
+process ReferenceDepthDistribution {
+  cpus '1'
+  memory '8GB'
+  time '1h'
+  module 'r/4.5.1'
+
+  input:
+  tuple val(np), path(syn)
+  path meta
+  path ref_groups
+  path script_file
+  val calibration_types
+
+  output:
+  tuple val("${np}"), path('*.pdf'), path('*.csv')
+
+  script:
+  def output_prefix = "${np}_reference_depth_distribution"
+  """
+  Rscript ${script_file} \
+    --np ${np} \
+    --synf ${syn} \
+    --meta ${meta} \
+    --ref_groups ${ref_groups} \
+    --types "${calibration_types}" \
+    --output_prefix ${output_prefix}
+  """
+}
+
+def normalizeCalibrationTypes(raw_types) {
+  if (raw_types == null) {
+    return ''
+  }
+  if (raw_types instanceof List) {
+    return raw_types.collect { it.toString().trim() }.findAll { it }.join(',')
+  }
+  return raw_types.toString()
+    .split(/[;,]/)
+    .collect { it.trim() }
+    .findAll { it }
+    .join(',')
+}
+
 workflow {
   main:
   // Define analysis parameters
@@ -252,6 +298,7 @@ workflow {
   def STYPE = ['pre', 'post']
   def MAT_PREFIX = 'int/idv_mat/'
   def SPARSE_LIMIT = params.sparse_limit
+  def CALIBRATION_TYPES = normalizeCalibrationTypes(params.calibration_types)
 
   // Create input channel
   cond_ch = channel
@@ -267,6 +314,13 @@ workflow {
         .map { row -> row.preset }
         .take( 11 )
     )
+
+  reference_cond_ch = channel
+    .fromList(NP)
+    .map { it ->
+      def synp = MAT_PREFIX + it + '_rotated.csv.gz'
+      return [it, file(synp)]
+    }
     
     
   // Perform statistical analysis
@@ -312,6 +366,14 @@ workflow {
     file(params.lo_r_synf)
   )
 
+  reference_depth_ch = ReferenceDepthDistribution(
+    reference_cond_ch,
+    file(params.metaf),
+    file(params.ref_groupsf),
+    file(params.reference_depth_scriptf),
+    CALIBRATION_TYPES
+  )
+
   // Run broad depth analysis
   broad_depth_ch = BroadDepthAnalysis(
     cond_ch,
@@ -345,6 +407,7 @@ workflow {
   functional_plots = functional_ch.plots
   functional_stats = functional_ch.stats
   opc_synapse_ratio = opc_ratio_ch.csv
+  reference_depth_distribution = reference_depth_ch
   broad_depth_results = broad_depth_ch
   broad_depth_summary = combined_broad_depth_ch.summary
   broad_depth_excel = combined_broad_depth_ch.excel
@@ -365,6 +428,7 @@ output {
   functional_plots { path "stats/functional_enrichment/" }
   functional_stats { path "stats/functional_enrichment/" }
   opc_synapse_ratio { path "stats/opc_synapse_ratio/" }
+  reference_depth_distribution { path "stats/reference_depth_distribution/" }
   broad_depth_results {
     path { input ->
       def np = input[0]

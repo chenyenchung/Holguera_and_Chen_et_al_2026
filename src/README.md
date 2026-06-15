@@ -11,6 +11,7 @@ The main pipeline modules are documented in their own READMEs:
 - `src/stats/`
 - `src/visualize/`
 - `src/selector_test/`
+- `src/cam_test/`
 
 ## Top-level manual scripts
 

@@ -11,7 +11,7 @@ process Visualize {
   cpus '1'
   memory '8GB'
   time '30m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   tuple val(np), path(syn), val(stype), val(preset), val(den)
@@ -46,7 +46,7 @@ process VisualizeSelector {
   cpus '1'
   memory '14GB'
   time '2h'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   tuple val(np), path(syn), val(stype), val(den), path(ts), val(gselection)
@@ -79,7 +79,7 @@ process SimilarityTree {
   cpus '1'
   memory '4GB'
   time '10m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path distances
@@ -103,7 +103,7 @@ process PartnerExtraction {
   cpus '2'
   memory '16GB'
   time '60m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path me_l
@@ -134,7 +134,7 @@ process NeuropilPartnerAnalysis {
   cpus '1'
   memory '4GB'
   time '10m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path partner_data

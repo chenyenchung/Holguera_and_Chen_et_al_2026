@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+renv::load("/scratch/ycc520/flyem")
 suppressPackageStartupMessages(library(R.utils))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(data.table))

@@ -28,7 +28,7 @@ process DepthStatsAnalysis {
   cpus '1'
   memory '8GB'
   time '3h'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   tuple val(np), path(syn), val(stype), val(preset)
@@ -75,7 +75,7 @@ process VisualizeStatSummary {
   cpus '1'
   memory '8GB'
   time '30m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   tuple val(np), val(preset), val(stype), path(results_csv)
@@ -99,7 +99,7 @@ process CombineResults {
   cpus '1'
   memory '4GB'
   time '15m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path csvs
@@ -119,7 +119,7 @@ process FunctionalEnrichment {
   cpus '1'
   memory '4GB'
   time '30m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path ann
@@ -163,7 +163,7 @@ process BroadDepthAnalysis {
   cpus '1'
   memory '8GB'
   time '8h'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   tuple val(np), path(syn), val(stype), val(preset)
@@ -206,7 +206,7 @@ process CombineBroadDepthResults {
   cpus '1'
   memory '4GB'
   time '15m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path csvs
@@ -229,7 +229,7 @@ process CombineBroadDepthResultsLight {
   cpus '1'
   memory '4GB'
   time '15m'
-  module 'r/gcc/4.5.0'
+  module 'r/4.5.1'
 
   input:
   path csvs

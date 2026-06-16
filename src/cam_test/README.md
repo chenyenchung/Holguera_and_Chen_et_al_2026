@@ -25,7 +25,7 @@ postsynaptic synapses. All CAM rows are analyzed and visualized by default.
 | `coefficient` | `0.5` | Threshold coefficient for depth bias |
 | `n_bootstrap` | `1000` | Bootstrap iterations |
 | `conf_int` | `95` | Confidence interval level |
-| `genes_per_batch` | `5` | CAM rows per depth-analysis batch; `0` runs one batch |
+| `genes_per_batch` | `5` | Eligible CAM rows per depth-analysis batch; `0` runs one batch |
 | `subsample` | `10000` | Synapses sampled per visualization process |
 | `density` | `asis` | Density mode passed to the visualization script |
 
@@ -59,6 +59,11 @@ The depth workflow reuses the selector bootstrap implementation with
 `data/P15_CAM.csv` as the expression matrix. Combined FDR values are recomputed
 after all batches are collected, grouped by neuropil, synapse type, and Notch
 category.
+
+Before batching, CAM rows are filtered to match the expression columns that can
+be mapped through confident annotations in `visual_neurons_anno.csv`. Rows with
+no `TRUE` value in those mapped columns are skipped so empty batches are not
+submitted to the depth-analysis process.
 
 CAM row names are preserved in result tables. Filenames are produced by the
 existing selector-style visualization script and should be treated as generated

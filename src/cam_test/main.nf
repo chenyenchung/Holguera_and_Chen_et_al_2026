@@ -21,8 +21,8 @@ params.density = 'asis'
 
 process CamDepthAnalysis {
   cpus 1
-  memory '16GB'
-  time '2h'
+  memory '32GB'
+  time '4h'
   module 'r/4.5.1'
 
   input:
@@ -126,18 +126,58 @@ process VisualizeCam {
   """
 }
 
-// Helper function to extract CAM row names from P15_CAM.csv.
-def extractCamNames(cam_file) {
+def csvFields(line) {
+  line.split(',', -1).collect { it.replaceAll('"', '').trim() }
+}
+
+// Helper function to extract CAM row names that survive filter_geneexp().
+def extractEligibleCamNames(cam_file, ann_file) {
+  def ann_lines = ann_file.readLines()
+  if (ann_lines.isEmpty()) {
+    throw new IllegalArgumentException("Annotation file is empty: ${ann_file}")
+  }
+
+  def ann_header = csvFields(ann_lines[0])
+  def confident_idx = ann_header.indexOf('Confident_annotation')
+  def cluster_idx = ann_header.indexOf('ozel2021_cluster')
+  if (confident_idx < 0 || cluster_idx < 0) {
+    throw new IllegalArgumentException(
+      "Annotation file must contain Confident_annotation and ozel2021_cluster columns: ${ann_file}"
+    )
+  }
+
+  def confident_clusters = ann_lines.drop(1)
+    .findAll { it.trim() }
+    .collect { csvFields(it) }
+    .findAll { fields ->
+      fields.size() > Math.max(confident_idx, cluster_idx) &&
+        fields[confident_idx] == 'Y' &&
+        fields[cluster_idx] &&
+        fields[cluster_idx] != 'NA'
+    }
+    .collect { fields -> fields[cluster_idx] }
+    .toSet()
+
   def lines = cam_file.readLines()
   if (lines.isEmpty()) return []
 
-  def genes = lines.drop(1)
-    .findAll { it.trim() }
-    .collect { line ->
-      line.split(',')[0].replaceAll('"', '').trim()
-    }
+  def cam_header = csvFields(lines[0])
+  def eligible_col_idx = (1..<cam_header.size()).findAll { idx ->
+    confident_clusters.contains(cam_header[idx])
+  }
 
-  println "Extracted ${genes.size()} CAM rows from ${cam_file.name}"
+  def rows = lines.drop(1).findAll { it.trim() }
+  def genes = rows
+    .collect { csvFields(it) }
+    .findAll { fields ->
+      eligible_col_idx.any { idx ->
+        fields.size() > idx && fields[idx].equalsIgnoreCase('TRUE')
+      }
+    }
+    .collect { fields -> fields[0] }
+    .findAll { it.trim() }
+
+  println "Extracted ${genes.size()} eligible CAM rows from ${cam_file.name} (${rows.size() - genes.size()} dropped)"
   return genes
 }
 
@@ -148,7 +188,8 @@ workflow {
   def MAT_PREFIX = 'int/idv_mat/'
 
   cam_file = file(params.camf)
-  cam_list = extractCamNames(cam_file)
+  ann_file = file(params.annf)
+  cam_list = extractEligibleCamNames(cam_file, ann_file)
 
   if (params.genes_per_batch > 0) {
     def batches = cam_list.collate(params.genes_per_batch)

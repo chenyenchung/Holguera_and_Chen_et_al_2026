@@ -12,7 +12,6 @@ suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(patchwork))
 suppressPackageStartupMessages(library(ggrepel))
-suppressPackageStartupMessages(library(ggpattern))
 suppressPackageStartupMessages(library(R.utils))
 suppressPackageStartupMessages(library(openxlsx))
 
@@ -42,41 +41,72 @@ pval_collector <- list()
 
 # Record p-value with metadata
 record_pval <- function(
-  test_type, subsystem, n_total, n_subsys, test_used, pval
+  test_type, subsystem, n_total, n_subsys, test_used, pval,
+  statistic = NA_real_, direction = NA_character_,
+  null_expectation = NA_real_, alternative = "two.sided",
+  fdr_family = "Existing_Fisher", notch_status = "All",
+  skip_reason = NA_character_
 ) {
   pval_collector[[length(pval_collector) + 1]] <<- list(
     test_type = test_type,
     subsystem = subsystem,
+    notch_status = notch_status,
     n_total = n_total,
     n_subsys = n_subsys,
     test_used = test_used,
+    statistic = statistic,
+    direction = direction,
+    null_expectation = null_expectation,
+    alternative = alternative,
+    fdr_family = fdr_family,
+    skip_reason = skip_reason,
     pval = pval
   )
 }
 
-# Write all p-values with corrections to Excel
-write_corrected_pvals_excel <- function(filename) {
-  if (length(pval_collector) == 0) return()
-  
-  # Convert to data frame
+# Apply BH correction independently within each declared hypothesis family.
+correct_collected_pvals <- function() {
+  if (length(pval_collector) == 0) return(NULL)
+
   pval_df <- do.call(rbind.data.frame, pval_collector)
-  
-  # Apply FDR correction
-  pval_df$p_fdr <- p.adjust(pval_df$pval, method = "fdr")
-  
-  # Rename columns for clarity
-  colnames(pval_df) <- c("Test_Type", "Functional_Subsystem", "N_Total", 
-                         "N_Subsystem", "Test_Used", "P_value_raw", "P_value_FDR")
+  pval_df$p_fdr <- NA_real_
+
+  for (family in unique(pval_df$fdr_family)) {
+    idx <- which(pval_df$fdr_family == family & is.finite(pval_df$pval))
+    if (length(idx) > 0) {
+      pval_df$p_fdr[idx] <- p.adjust(pval_df$pval[idx], method = "fdr")
+    }
+  }
+
+  return(pval_df)
+}
+
+# Write all p-values with corrections to Excel
+write_corrected_pvals_excel <- function(filename, pval_df) {
+  if (is.null(pval_df) || nrow(pval_df) == 0) return(NULL)
+
+  excel_df <- pval_df
+  excel_df <- excel_df[, c(
+    "test_type", "subsystem", "notch_status", "n_total", "n_subsys", "test_used",
+    "statistic", "direction", "null_expectation", "alternative",
+    "fdr_family", "skip_reason", "pval", "p_fdr"
+  )]
+  colnames(excel_df) <- c(
+    "Test_Type", "Functional_Subsystem", "Notch_Status", "N_Total",
+    "N_Subsystem", "Test_Used", "Statistic", "Direction",
+    "Null_Expectation", "Alternative", "FDR_Family", "Skip_Reason",
+    "P_value_raw", "P_value_FDR"
+  )
   
   # Split data by test type
-  test_types <- unique(pval_df$Test_Type)
+  test_types <- unique(excel_df$Test_Type)
   
   # Create workbook
   wb <- createWorkbook()
   
   # Add each test type as a separate sheet
   for (test_type in test_types) {
-    sheet_data <- pval_df[pval_df$Test_Type == test_type, ]
+    sheet_data <- excel_df[excel_df$Test_Type == test_type, ]
     # Remove Test_Type column since it's now the sheet name
     sheet_data <- sheet_data[, !colnames(sheet_data) %in% "Test_Type"]
     
@@ -89,6 +119,179 @@ write_corrected_pvals_excel <- function(filename) {
   saveWorkbook(wb, filename, overwrite = TRUE)
   
   return(pval_df)
+}
+
+# Cache exact temporal null distributions by window sizes, scores, and
+# subsystem membership count.
+temporal_null_cache <- new.env(parent = emptyenv())
+
+# Count allocations k_j satisfying sum(k_j) = m and 0 <= k_j <= n_j.
+count_feasible_allocations <- function(window_sizes, m) {
+  dp <- numeric(m + 1)
+  dp[1] <- 1
+  for (window_size in window_sizes) {
+    next_dp <- numeric(m + 1)
+    for (subtotal in 0:m) {
+      if (dp[subtotal + 1] == 0) next
+      max_add <- min(window_size, m - subtotal)
+      for (add in 0:max_add) {
+        next_dp[subtotal + add + 1] <-
+          next_dp[subtotal + add + 1] + dp[subtotal + 1]
+      }
+    }
+    dp <- next_dp
+  }
+  return(as.integer(dp[m + 1]))
+}
+
+# Expected runs after averaging uniformly over every ordering within each
+# tied temporal window. Empty windows are omitted before this function.
+tie_averaged_runs <- function(subsystem_counts, window_sizes) {
+  proportions <- subsystem_counts / window_sizes
+  within_transitions <- sum(
+    2 * subsystem_counts * (window_sizes - subsystem_counts) / window_sizes
+  )
+  between_transitions <- 0
+  if (length(window_sizes) > 1) {
+    between_transitions <- sum(
+      proportions[-length(proportions)] *
+        (1 - proportions[-1]) +
+        (1 - proportions[-length(proportions)]) *
+        proportions[-1]
+    )
+  }
+  return(1 + within_transitions + between_transitions)
+}
+
+# Enumerate the exact conditional permutation null. Each feasible vector of
+# per-window subsystem counts is weighted by its multivariate-hypergeometric
+# probability, conditional on the observed total subsystem size.
+get_exact_temporal_null <- function(window_sizes, scores, m) {
+  key <- paste(
+    paste(window_sizes, collapse = ","),
+    paste(scores, collapse = ","),
+    m,
+    sep = "|"
+  )
+  if (exists(key, envir = temporal_null_cache, inherits = FALSE)) {
+    return(get(key, envir = temporal_null_cache, inherits = FALSE))
+  }
+
+  n_total <- sum(window_sizes)
+  n_states <- count_feasible_allocations(window_sizes, m)
+  probabilities <- numeric(n_states)
+  trend_statistics <- numeric(n_states)
+  runs_statistics <- numeric(n_states)
+  allocation <- integer(length(window_sizes))
+  state_index <- 0L
+
+  score_mean <- sum(window_sizes * scores) / n_total
+  trend_variance <- (
+    m * (n_total - m) / (n_total * (n_total - 1))
+  ) * sum(window_sizes * (scores - score_mean)^2)
+
+  enumerate_allocations <- function(window_index, remaining) {
+    if (window_index == length(window_sizes)) {
+      if (remaining < 0 || remaining > window_sizes[window_index]) return()
+      allocation[window_index] <<- remaining
+      state_index <<- state_index + 1L
+
+      probabilities[state_index] <<- exp(
+        sum(lchoose(window_sizes, allocation)) - lchoose(n_total, m)
+      )
+      trend_numerator <- sum(
+        scores * (allocation - window_sizes * m / n_total)
+      )
+      trend_statistics[state_index] <<-
+        trend_numerator / sqrt(trend_variance)
+      runs_statistics[state_index] <<-
+        tie_averaged_runs(allocation, window_sizes)
+      return()
+    }
+
+    remaining_capacity <- sum(window_sizes[(window_index + 1):length(window_sizes)])
+    min_count <- max(0, remaining - remaining_capacity)
+    max_count <- min(window_sizes[window_index], remaining)
+    if (min_count > max_count) return()
+
+    for (count in min_count:max_count) {
+      allocation[window_index] <<- count
+      enumerate_allocations(window_index + 1, remaining - count)
+    }
+  }
+
+  enumerate_allocations(1L, m)
+  if (state_index != n_states) {
+    stop(
+      "Exact temporal enumeration generated ", state_index,
+      " states; expected ", n_states
+    )
+  }
+  probabilities <- probabilities / sum(probabilities)
+  result <- list(
+    probabilities = probabilities,
+    trend_statistics = trend_statistics,
+    runs_statistics = runs_statistics,
+    expected_runs = sum(probabilities * runs_statistics)
+  )
+  assign(key, result, envir = temporal_null_cache)
+  return(result)
+}
+
+exact_cochran_armitage_test <- function(
+    subsystem_counts, window_sizes, scores) {
+  m <- sum(subsystem_counts)
+  n_total <- sum(window_sizes)
+  score_mean <- sum(window_sizes * scores) / n_total
+  trend_variance <- (
+    m * (n_total - m) / (n_total * (n_total - 1))
+  ) * sum(window_sizes * (scores - score_mean)^2)
+  observed <- sum(
+    scores * (subsystem_counts - window_sizes * m / n_total)
+  ) / sqrt(trend_variance)
+  null <- get_exact_temporal_null(window_sizes, scores, m)
+  tolerance <- sqrt(.Machine$double.eps)
+  p_value <- sum(
+    null$probabilities[
+      abs(null$trend_statistics) >= abs(observed) - tolerance
+    ]
+  )
+  direction <- if (observed < -tolerance) {
+    "Early"
+  } else if (observed > tolerance) {
+    "Late"
+  } else {
+    "No direction"
+  }
+
+  return(list(
+    p.value = min(1, p_value),
+    statistic = observed,
+    direction = direction,
+    null.expectation = 0,
+    alternative = "two.sided"
+  ))
+}
+
+exact_tie_averaged_runs_test <- function(subsystem_counts, window_sizes, scores) {
+  observed <- tie_averaged_runs(subsystem_counts, window_sizes)
+  null <- get_exact_temporal_null(
+    window_sizes, scores, sum(subsystem_counts)
+  )
+  tolerance <- sqrt(.Machine$double.eps)
+  p_value <- sum(
+    null$probabilities[
+      null$runs_statistics <= observed + tolerance
+    ]
+  )
+
+  return(list(
+    p.value = min(1, p_value),
+    statistic = observed,
+    direction = "Contiguous concentration",
+    null.expectation = null$expected_runs,
+    alternative = "less"
+  ))
 }
 
 
@@ -109,31 +312,186 @@ calc_prop_ci <- function(x, n, conf.level = 0.95) {
   return(c(ci_lower, ci_upper))
 }
 
+format_pvalue <- function(value) {
+  if (length(value) == 0 || !is.finite(value)) return("NA")
+  if (value < 0.001) return("<0.001")
+  return(sprintf("%.3f", value))
+}
+
+format_plot_qvalue <- function(result_row) {
+  if (
+    is.null(result_row) ||
+    !is.na(result_row$skip_reason) ||
+    !is.finite(result_row$p_fdr)
+  ) {
+    return("NT")
+  }
+  return(format_pvalue(result_row$p_fdr))
+}
+
 # ============================================================================
 # MODULAR ANALYSIS FUNCTIONS
 # ============================================================================
 
+record_skipped_temporal_test <- function(
+    test_type, subsys, notch_status, n_total, n_subsys, test_used,
+    alternative, fdr_family, skip_reason,
+    direction = NA_character_, null_expectation = NA_real_) {
+  record_pval(
+    test_type, subsys, n_total, n_subsys, test_used, NA_real_,
+    statistic = NA_real_,
+    direction = direction,
+    null_expectation = null_expectation,
+    alternative = alternative,
+    fdr_family = fdr_family,
+    notch_status = notch_status,
+    skip_reason = skip_reason
+  )
+}
+
+run_temporal_tests_by_notch <- function(data, subsys) {
+  results <- list()
+
+  for (notch_status in c("Notch Off", "Notch On")) {
+    stratum <- data %>% filter(Notch == notch_status)
+    n_total <- nrow(stratum)
+    n_subsys <- sum(stratum$is_subsystem)
+    n_non_subsys <- n_total - n_subsys
+    result_key <- if (notch_status == "Notch Off") "notch_off" else "notch_on"
+    results[[result_key]] <- list()
+
+    temporal_counts <- stratum %>%
+      group_by(temporal_id) %>%
+      summarise(
+        n_total = n(),
+        n_subsys = sum(is_subsystem),
+        .groups = "drop"
+      ) %>%
+      arrange(temporal_id)
+    window_sizes <- temporal_counts$n_total
+    subsystem_counts <- temporal_counts$n_subsys
+    temporal_scores <- temporal_counts$temporal_id
+
+    common_skip_reason <- NA_character_
+    if (n_subsys == 0) {
+      common_skip_reason <- "No subsystem members in Notch stratum"
+    } else if (n_non_subsys == 0) {
+      common_skip_reason <- "No non-subsystem members in Notch stratum"
+    } else if (length(window_sizes) < 2) {
+      common_skip_reason <- "Fewer than two observed temporal windows"
+    }
+
+    if (is.na(common_skip_reason)) {
+      tbl_temporal <- table(stratum$temporal_id, stratum$is_subsystem)
+      fisher_obj <- tryCatch(
+        fisher.test(tbl_temporal),
+        error = function(e) e
+      )
+      if (inherits(fisher_obj, "error")) {
+        fisher_skip <- paste("Test error:", conditionMessage(fisher_obj))
+        record_skipped_temporal_test(
+          "Temporal", subsys, notch_status, n_total, n_subsys,
+          "fisher", "two.sided", "Temporal", fisher_skip
+        )
+      } else {
+        results[[result_key]]$temporal <- fisher_obj
+        record_pval(
+          "Temporal", subsys, n_total, n_subsys, "fisher",
+          fisher_obj$p.value,
+          alternative = "two.sided",
+          fdr_family = "Temporal",
+          notch_status = notch_status
+        )
+      }
+
+      trend_obj <- tryCatch(
+        exact_cochran_armitage_test(
+          subsystem_counts, window_sizes, temporal_scores
+        ),
+        error = function(e) e
+      )
+      if (inherits(trend_obj, "error")) {
+        trend_skip <- paste("Test error:", conditionMessage(trend_obj))
+        record_skipped_temporal_test(
+          "Cochran_Armitage", subsys, notch_status, n_total, n_subsys,
+          "exact conditional permutation", "two.sided",
+          "Cochran_Armitage", trend_skip, null_expectation = 0
+        )
+      } else {
+        results[[result_key]]$cochran_armitage <- trend_obj
+        record_pval(
+          "Cochran_Armitage", subsys, n_total, n_subsys,
+          "exact conditional permutation", trend_obj$p.value,
+          statistic = trend_obj$statistic,
+          direction = trend_obj$direction,
+          null_expectation = trend_obj$null.expectation,
+          alternative = trend_obj$alternative,
+          fdr_family = "Cochran_Armitage",
+          notch_status = notch_status
+        )
+      }
+    } else {
+      record_skipped_temporal_test(
+        "Temporal", subsys, notch_status, n_total, n_subsys,
+        "fisher", "two.sided", "Temporal", common_skip_reason
+      )
+      record_skipped_temporal_test(
+        "Cochran_Armitage", subsys, notch_status, n_total, n_subsys,
+        "exact conditional permutation", "two.sided",
+        "Cochran_Armitage", common_skip_reason, null_expectation = 0
+      )
+    }
+
+    runs_skip_reason <- common_skip_reason
+    if (is.na(runs_skip_reason) && n_subsys < 2) {
+      runs_skip_reason <- "Fewer than two subsystem members"
+    }
+    if (is.na(runs_skip_reason)) {
+      runs_obj <- tryCatch(
+        exact_tie_averaged_runs_test(
+          subsystem_counts, window_sizes, temporal_scores
+        ),
+        error = function(e) e
+      )
+      if (inherits(runs_obj, "error")) {
+        runs_skip <- paste("Test error:", conditionMessage(runs_obj))
+        record_skipped_temporal_test(
+          "Wald_Wolfowitz", subsys, notch_status, n_total, n_subsys,
+          "exact tie-averaged permutation", "less",
+          "Wald_Wolfowitz", runs_skip,
+          direction = "Contiguous concentration"
+        )
+      } else {
+        results[[result_key]]$wald_wolfowitz <- runs_obj
+        record_pval(
+          "Wald_Wolfowitz", subsys, n_total, n_subsys,
+          "exact tie-averaged permutation", runs_obj$p.value,
+          statistic = runs_obj$statistic,
+          direction = runs_obj$direction,
+          null_expectation = runs_obj$null.expectation,
+          alternative = runs_obj$alternative,
+          fdr_family = "Wald_Wolfowitz",
+          notch_status = notch_status
+        )
+      }
+    } else {
+      record_skipped_temporal_test(
+        "Wald_Wolfowitz", subsys, notch_status, n_total, n_subsys,
+        "exact tie-averaged permutation", "less",
+        "Wald_Wolfowitz", runs_skip_reason,
+        direction = "Contiguous concentration"
+      )
+    }
+  }
+
+  return(results)
+}
+
 # Run all statistical tests for a subsystem
 run_all_tests <- function(data, subsys, el_cut) {
   results <- list()
-  
-  # Temporal association test
-  tbl_temporal <- table(data$temporal_label, data$is_subsystem)
-  if (nrow(tbl_temporal) >= 2 && ncol(tbl_temporal) >= 2) {
-    test_obj <- tryCatch(
-      {fisher.test(tbl_temporal)}, 
-      error = function(e) {list(p.value = NA)}
-    )
-    results$temporal <- list(
-      test = test_obj,
-      n_total = sum(tbl_temporal),
-      n_subsys = sum(tbl_temporal[, "TRUE"])
-    )
-    record_pval(
-      "Temporal", subsys, results$temporal$n_total, 
-      results$temporal$n_subsys, "fisher", test_obj$p.value
-    )
-  }
+
+  results$temporal_by_notch <- run_temporal_tests_by_notch(data, subsys)
   
   # Broad temporal association test
   data$is_early <- data$temporal_id < el_cut
@@ -255,35 +613,30 @@ prepare_notch_plot_data <- function(data, subsys) {
   return(notch_stacked_data)
 }
 
-# Prepare data for temporal plot with hatched patterns
+# Prepare Notch-faceted temporal plot data. Missing windows within a Notch
+# stratum remain absent so they render as gaps rather than zero prevalence.
 prepare_temporal_plot_data <- function(data, subsys) {
+  temporal_levels <- data %>%
+    distinct(temporal_id, temporal_label) %>%
+    arrange(temporal_id)
+
   stacked_data <- data %>%
     filter(Notch %in% c("Notch Off", "Notch On")) %>%
-    group_by(temporal_label) %>%
+    group_by(temporal_id, temporal_label, Notch) %>%
     summarise(
-      not_in_subsystem_notch_off = sum(!is_subsystem & Notch == "Notch Off") / n(),
-      not_in_subsystem_notch_on = sum(!is_subsystem & Notch == "Notch On") / n(),
-      in_subsystem_notch_off = sum(is_subsystem & Notch == "Notch Off") / n(),
-      in_subsystem_notch_on = sum(is_subsystem & Notch == "Notch On") / n(),
-      .groups = 'drop'
+      not_in_subsystem = sum(!is_subsystem) / n(),
+      in_subsystem = sum(is_subsystem) / n(),
+      .groups = "drop"
     ) %>%
     tidyr::pivot_longer(
-      cols = c(
-        not_in_subsystem_notch_off, not_in_subsystem_notch_on,
-        in_subsystem_notch_off, in_subsystem_notch_on
-      ),
+      cols = c(not_in_subsystem, in_subsystem),
       names_to = "category",
       values_to = "prop"
     ) %>%
     mutate(
       category = factor(
         category,
-        levels = c(
-          "not_in_subsystem_notch_off",
-          "not_in_subsystem_notch_on",
-          "in_subsystem_notch_off",
-          "in_subsystem_notch_on"
-        )
+        levels = c("not_in_subsystem", "in_subsystem")
       ),
       fill_color = factor(
         case_when(
@@ -292,13 +645,10 @@ prepare_temporal_plot_data <- function(data, subsys) {
         ),
         levels = c("Not in subsystem", subsys)
       ),
-      pattern_type = case_when(
-        grepl("notch_off", category) ~ "none",
-        grepl("notch_on", category) ~ "stripe"
-      ),
+      Notch = factor(Notch, levels = c("Notch Off", "Notch On")),
       temporal_label = factor(
         temporal_label,
-        levels = unique(data$temporal_label)
+        levels = temporal_levels$temporal_label
       )
     )
   
@@ -426,47 +776,73 @@ create_notch_plot <- function(plot_data, test_results, subsys, pval_df = NULL) {
   return(p)
 }
 
-# Create temporal plot with hatched patterns
-create_temporal_hatched_plot <- function(
-    plot_data, subsys, test_results, pval_df = NULL) {
-  # Get temporal test p-value
-  p_value <- ifelse(
-    is.null(test_results$temporal$test$p.value), 
-    NA, 
-    test_results$temporal$test$p.value
+make_temporal_plot_subtitle <- function(pval_df, subsys) {
+  notch_labels <- c("Notch Off" = "N-", "Notch On" = "N+")
+  annotation_lines <- Map(
+    function(notch_status, notch_label) {
+
+      get_result <- function(test_type) {
+        idx <- which(
+          pval_df$test_type == test_type &
+            pval_df$subsystem == subsys &
+            pval_df$notch_status == notch_status
+        )
+        if (length(idx) == 0) return(NULL)
+        pval_df[idx[1], , drop = FALSE]
+      }
+
+      fisher_row <- get_result("Temporal")
+      trend_row <- get_result("Cochran_Armitage")
+      runs_row <- get_result("Wald_Wolfowitz")
+      trend_direction <- if (
+        is.null(trend_row) ||
+        !is.na(trend_row$skip_reason) ||
+        is.na(trend_row$direction)
+      ) {
+        "NT"
+      } else {
+        tolower(trend_row$direction)
+      }
+
+      paste0(
+        notch_label, ": Fisher q=", format_plot_qvalue(fisher_row),
+        "; trend q=", format_plot_qvalue(trend_row),
+        " (", trend_direction, ")",
+        "; clustering q=", format_plot_qvalue(runs_row)
+      )
+    },
+    names(notch_labels),
+    unname(notch_labels)
   )
-  
-  # Get FDR-corrected p-value if available
-  p_fdr <- p_value
-  if (!is.null(pval_df)) {
-    # Find the FDR-corrected p-value for this specific test
-    idx <- which(pval_df$test_type == "Temporal" & pval_df$subsystem == subsys)
-    if (length(idx) > 0) {
-      p_fdr <- pval_df$p_fdr[idx[1]]
-    }
-  }
-  
+
+  return(paste(unlist(annotation_lines), collapse = "\n"))
+}
+
+# Create temporal plot with separate Notch Off and Notch On facets.
+create_temporal_faceted_plot <- function(
+    plot_data, subsys, pval_df = NULL) {
+  subtitle <- make_temporal_plot_subtitle(pval_df, subsys)
+
   p <- ggplot(plot_data, aes(x = temporal_label, y = prop)) +
-    geom_col_pattern(
-      aes(fill = fill_color, pattern = pattern_type),
-      position = position_stack(),
-      pattern_fill = "grey90",
-      pattern_colour = "black",
-      pattern_density = 0.3,
-      pattern_spacing = 0.1,
-      pattern_size = 0.1,
-      pattern_key_scale_factor = 0.2
+    geom_col(
+      aes(fill = fill_color),
+      position = position_stack()
+    ) +
+    facet_wrap(
+      ~Notch,
+      ncol = 2,
+      drop = FALSE,
+      labeller = as_labeller(c("Notch Off" = "N-", "Notch On" = "N+"))
     ) +
     labs(
       title = subsys,
-      subtitle = paste0("Fisher's Exact Test (FDR) p = ", 
-                       round(p_fdr, 3)),
+      subtitle = subtitle,
       x = "Temporal Origin",
       y = "Proportion of neurons",
-      fill = paste("Involved in\n", subsys),
-      pattern = "Notch Status"
+      fill = paste("Involved in\n", subsys)
     ) +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+    scale_x_discrete(drop = FALSE) +
     scale_fill_manual(
       values = setNames(
         c("grey90", scale_fill_subsystem()$palette(0)[[subsys]]),
@@ -474,29 +850,17 @@ create_temporal_hatched_plot <- function(
       ),
       labels = c("No", "Yes")
     ) +
-    scale_pattern_manual(
-      values = c("none" = "none", "stripe" = "stripe"),
-      labels = c("Off", "On")
-    ) +
     theme_minimal() +
     theme(
       axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1),
       legend.position = "right",
-      legend.box = "vertical",
       axis.title.x = element_blank(),
-      axis.text = element_text(size = 14),
+      axis.text = element_text(size = 12),
       axis.title = element_text(size = 16),
-      plot.subtitle = element_text(size = 10, color = "grey50"),
+      plot.subtitle = element_text(size = 10, color = "grey30"),
+      strip.text = element_text(size = 13),
       legend.title = element_text(size = 12),
       legend.text = element_text(size = 10)
-    ) +
-    guides(
-      pattern = guide_legend(
-        override.aes = list(fill = scale_fill_subsystem()$palette(0)[[subsys]]),
-        order = 1
-        ),
-      fill = guide_legend(override.aes = list(pattern = "none"),
-                          order = 2)
     )
   
   return(p)
@@ -563,7 +927,7 @@ subsystems <- unique(opc_known_tid$func)
 # Storage for plots and combined data
 notch_plots <- list()
 broad_temp_plots <- list()
-hatched_plots <- list()
+temporal_faceted_plots <- list()
 combined_data_all <- data.frame()
 
 # Storage for test results and plot data
@@ -608,7 +972,7 @@ for (subsys in subsystems) {
     }
   }
   
-  # Prepare data for temporal plot with hatched patterns
+  # Prepare data for Notch-faceted temporal plot
   temporal_plot_data <- prepare_temporal_plot_data(opc_known_tid, subsys)
   if (nrow(temporal_plot_data) > 0) {
     all_plot_data[[subsys]]$temporal <- temporal_plot_data
@@ -622,11 +986,7 @@ for (subsys in subsystems) {
 }
 
 # Apply FDR correction to all p-values
-pval_df <- NULL
-if (length(pval_collector) > 0) {
-  pval_df <- do.call(rbind.data.frame, pval_collector)
-  pval_df$p_fdr <- p.adjust(pval_df$pval, method = "fdr")
-}
+pval_df <- correct_collected_pvals()
 
 # Second pass: create plots with FDR-corrected p-values
 for (subsys in names(all_test_results)) {
@@ -647,10 +1007,10 @@ for (subsys in names(all_test_results)) {
     )
   }
   
-  # Create temporal plot with FDR-corrected p-values
+  # Create Notch-faceted temporal plot with FDR-corrected p-values
   if (!is.null(plot_data$temporal)) {
-    hatched_plots[[subsys]] <- create_temporal_hatched_plot(
-      plot_data$temporal, subsys, test_results, pval_df
+    temporal_faceted_plots[[subsys]] <- create_temporal_faceted_plot(
+      plot_data$temporal, subsys, pval_df
     )
   }
 }
@@ -683,16 +1043,16 @@ if (length(broad_temp_plots) > 0) {
   message(sprintf("Saved broad temporal plots to: %s", outfn))
 }
 
-# Save temporal plots with hatched patterns
-if (length(hatched_plots) > 0) {
-  outfn <- "functional_subsystems_temporal_by_notch_stacked.pdf"
-  wrap_plots(hatched_plots, ncol = 2)
+# Save Notch-faceted temporal plots
+if (length(temporal_faceted_plots) > 0) {
+  outfn <- "functional_subsystems_temporal_by_notch_faceted.pdf"
+  wrap_plots(temporal_faceted_plots, ncol = 1)
   ggsave(
     outfn, 
-    width = 16, 
-    height = 4 * ceiling(length(hatched_plots)/2)
+    width = 16,
+    height = 5 * length(temporal_faceted_plots)
   )
-  message(sprintf("Saved temporal hatched plots to: %s", outfn))
+  message(sprintf("Saved Notch-faceted temporal plots to: %s", outfn))
 }
 
 # Create separated plots for comparison
@@ -748,19 +1108,40 @@ if (nrow(combined_data_all) > 0) {
 # WRITE CORRECTED P-VALUES
 # ============================================================================
 
-pval_summary <- write_corrected_pvals_excel(pval_file)
+pval_summary <- write_corrected_pvals_excel(pval_file, pval_df)
 
 # Print summary of significant results
 message("\n=== SUMMARY OF RESULTS (FDR-corrected) ===")
 if (!is.null(pval_summary)) {
-  sig_results <- pval_summary[pval_summary$p_fdr < 0.05, ]
+  sig_results <- pval_summary[
+    is.finite(pval_summary$p_fdr) & pval_summary$p_fdr < 0.05,
+  ]
   if (nrow(sig_results) > 0) {
     message("Significant associations after FDR correction:")
     for (i in 1:nrow(sig_results)) {
-      message(sprintf("  %s - %s: p(FDR) = %.4f", 
-                     sig_results$test_type[i],
-                     sig_results$subsystem[i], 
-                     sig_results$p_fdr[i]))
+      detail <- ""
+      stratum_detail <- if (sig_results$notch_status[i] == "All") {
+        ""
+      } else {
+        paste0(" [", sig_results$notch_status[i], "]")
+      }
+      if (sig_results$test_type[i] == "Cochran_Armitage") {
+        detail <- paste0(" (", tolower(sig_results$direction[i]), " bias)")
+      } else if (sig_results$test_type[i] == "Wald_Wolfowitz") {
+        detail <- sprintf(
+          " (runs %.3f; null expectation %.3f)",
+          sig_results$statistic[i],
+          sig_results$null_expectation[i]
+        )
+      }
+      message(sprintf(
+        "  %s - %s%s: p(FDR) = %.4f%s",
+        sig_results$test_type[i],
+        sig_results$subsystem[i],
+        stratum_detail,
+        sig_results$p_fdr[i],
+        detail
+      ))
     }
   } else {
     message("No significant associations after FDR correction")

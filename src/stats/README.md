@@ -25,8 +25,26 @@ enormous number of synapses.
     - LO: Tm1,2,4 (superficial) vs Tm20,5a-f (deep)
 
 ### 2. Functional Enrichment Analysis
-- Tests if birth time and function are linked with Fisher's exact test
-- Corrects for multiple comparisons using FDR
+
+- Temporal tests are run separately for Notch Off and Notch On cell types.
+  Temporal figures abbreviate these strata as N- and N+, respectively.
+- Fisher's exact test detects any association between temporal windows and
+  functional subsystem membership within each Notch stratum, including
+  non-monotonic patterns.
+- An exact conditional Cochran-Armitage test detects a general shift toward
+  earlier or later temporal windows within each stratum, using `temporal_id`
+  as the ordered score.
+- An exact tie-averaged Wald-Wolfowitz test detects subsystem concentration in
+  contiguous temporal windows within each stratum. The run count is averaged
+  over every possible ordering within tied windows, avoiding arbitrary tie
+  breaking.
+- Cochran-Armitage and Wald-Wolfowitz null distributions condition on subsystem
+  size and weight feasible per-window allocations by their exact
+  multivariate-hypergeometric probabilities.
+- Temporal Fisher, Cochran-Armitage, and Wald-Wolfowitz results are corrected
+  as three separate FDR families, pooling subsystem hypotheses across both
+  Notch strata. Non-temporal Fisher tests retain their existing pooled FDR
+  correction.
 
 ### 3. OPC Synapse Ratio Analysis
 - Computes the fraction of lobula (LO) synapses whose presynaptic or

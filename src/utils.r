@@ -123,26 +123,20 @@ scale_color_type <- function() {
 
 #' Color scale for spatial origin annotations
 scale_color_spatial_origin <- function() {
-  lighten <- function(hex, amount = 0.3) {
-    rgb_val <- grDevices::col2rgb(hex) / 255
-    light_rgb <- rgb_val + (1 - rgb_val) * amount
-    grDevices::rgb(light_rgb[1], light_rgb[2], light_rgb[3])
-  }
-
-  ventral <- c(
-    vVsx = "#1B9E77",
-    vOptix = "#7570B3",
-    vDpp = "#D95F02"
-  )
-  dorsal <- c(
-    dVsx = lighten(ventral[["vVsx"]]),
-    dOptix = lighten(ventral[["vOptix"]]),
-    dDpp = lighten(ventral[["vDpp"]])
+  spatial_origin_colors <- c(
+    Vsx = "#1B9E77",
+    Optix = "#7570B3",
+    Dpp = "#D95F02",
+    "Vsx/Optix" = "#4B8A95",
+    "Vsx/Dpp" = "#7A8B3D",
+    "Optix/Dpp" = "#A0685B",
+    "Vsx/Optix/Dpp" = "#5F5F5F",
+    unknown = "grey80"
   )
 
   f <- scale_color_manual(
-    values = c(ventral, dorsal, unknown = "grey80"),
-    breaks = c("vVsx", "dVsx", "vOptix", "dOptix", "vDpp", "dDpp", "unknown")
+    values = spatial_origin_colors,
+    breaks = names(spatial_origin_colors)
   )
   return(f)
 }
@@ -374,7 +368,17 @@ filter_broad <- function(coord, ann, syn_type = "pre") {
 #' Filter coordinates by spatial origin annotations
 filter_spatial_origin <- function(coord, ann, syn_type = "pre") {
   by_x <- ifelse(syn_type == "pre", "pre_type", "post_type")
-  spatial_cols <- c("vVsx", "vOptix", "vDpp", "dVsx", "dOptix", "dDpp")
+  spatial_families <- list(
+    Vsx = c("vVsx", "dVsx"),
+    Optix = c("vOptix", "dOptix"),
+    Dpp = c("vDpp", "dDpp")
+  )
+  spatial_cols <- unlist(spatial_families, use.names = FALSE)
+  spatial_levels <- c(
+    "Vsx", "Optix", "Dpp",
+    "Vsx/Optix", "Vsx/Dpp", "Optix/Dpp",
+    "Vsx/Optix/Dpp", "unknown"
+  )
   missing_cols <- setdiff(spatial_cols, colnames(ann))
   if (length(missing_cols) > 0) {
     stop(sprintf(
@@ -392,30 +396,28 @@ filter_spatial_origin <- function(coord, ann, syn_type = "pre") {
   for (col in spatial_cols) {
     ann_spatial[, (col) := is_spatial_origin(get(col))]
   }
-  ann_spatial[, n_spatial_origin := rowSums(.SD), .SDcols = spatial_cols]
 
-  ambiguous <- ann_spatial[n_spatial_origin > 1, cell_type]
-  if (length(ambiguous) > 0) {
-    ambiguous_preview <- head(ambiguous, 20)
-    warning(sprintf(
-      paste(
-        "Multiple spatial origin markers found for %d cell types: %s%s.",
-        "Using the first marker in this order: %s"
-      ),
-      length(ambiguous),
-      paste(ambiguous_preview, collapse = ", "),
-      ifelse(length(ambiguous) > length(ambiguous_preview), ", ...", ""),
-      paste(spatial_cols, collapse = ", ")
-    ))
+  family_order <- names(spatial_families)
+  family_flag_cols <- paste0(".spatial_", family_order)
+  names(family_flag_cols) <- family_order
+  for (family in family_order) {
+    ann_spatial[
+      ,
+      (family_flag_cols[[family]]) := rowSums(.SD) > 0,
+      .SDcols = spatial_families[[family]]
+    ]
   }
 
-  ann_spatial[, spatial_origin := "unknown"]
-  for (col in spatial_cols) {
-    ann_spatial[get(col) == TRUE & spatial_origin == "unknown", spatial_origin := col]
-  }
+  ann_spatial[, spatial_origin := apply(.SD, 1, function(row) {
+    origins <- family_order[as.logical(row)]
+    if (length(origins) == 0) {
+      return("unknown")
+    }
+    paste(origins, collapse = "/")
+  }), .SDcols = family_flag_cols]
   ann_spatial[, spatial_origin := factor(
     spatial_origin,
-    levels = c("vVsx", "dVsx", "vOptix", "dOptix", "vDpp", "dDpp", "unknown")
+    levels = spatial_levels
   )]
 
   coord[, .row_id := .I]

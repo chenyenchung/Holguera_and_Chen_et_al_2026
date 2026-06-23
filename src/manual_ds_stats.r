@@ -243,67 +243,84 @@ Y1_p <- wrap_plots(Y1, ncol = 3) +
 ggsave(filename = "int/Supp_fig_Y1.pdf", plot = Y1_p, width = 8.5, height = 11)
 
 ### Y2
-boot_p1 <- read.xlsx(
-  boot_sheets_paths,
-  sheet = which(getSheetNames(boot_sheets_paths) == "type_putative_1")
-)
+putative_hl_cols <- grep("^putative_hl[0-9]+$", names(opc_anno), value = TRUE)
+putative_hl_cols <- putative_hl_cols[
+  colSums(opc_anno[putative_hl_cols] == "Y", na.rm = TRUE) > 0
+]
+putative_hl_ids <- as.integer(sub("^putative_hl", "", putative_hl_cols))
+putative_hl_ids <- sort(putative_hl_ids)
 
-boot_p1$syn_type <- factor(
-  boot_p1$syn_type,
-  levels = c("pre", "post"),
-  labels = c("Presynapse", "Postsynapse")
-)
+boot_sheet_names <- getSheetNames(boot_sheets_paths)
 
-Y2A <- dsplot(
-  boot_p1, "LO_R", "all",
-  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
-)
-Y2A
+read_putative_boot <- function(hl_id) {
+  sheet_name <- paste0("type_putative_", hl_id)
+  sheet_idx <- which(boot_sheet_names == sheet_name)
+  if (length(sheet_idx) != 1) {
+    stop(sprintf("Cannot find required worksheet: %s", sheet_name))
+  }
 
-boot_p2 <- read.xlsx(
-  boot_sheets_paths,
-  sheet = which(getSheetNames(boot_sheets_paths) == "type_putative_2")
-)
+  boot_putative <- read.xlsx(
+    boot_sheets_paths,
+    sheet = sheet_idx
+  )
 
-boot_p2$syn_type <- factor(
-  boot_p2$syn_type,
-  levels = c("pre", "post"),
-  labels = c("Presynapse", "Postsynapse")
-)
+  boot_putative$syn_type <- factor(
+    boot_putative$syn_type,
+    levels = c("pre", "post"),
+    labels = c("Presynapse", "Postsynapse")
+  )
 
-Y2B <- dsplot(
-  boot_p2, "LO_R", "all",
-  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
-)
-Y2B
+  boot_putative
+}
 
-Y2C <- dsplot(
-  boot_p1, "ME_R", "all"
-)
-Y2C
+make_y2_panel <- function(boot_putative, neuropil) {
+  if (!any(boot_putative$neuropil == neuropil)) {
+    return(NULL)
+  }
 
-Y2D <- dsplot(
-  boot_p2, "ME_R", "all"
-)
-Y2D
+  dsplot(
+    boot_putative, neuropil, "all",
+    ylab = ifelse(
+      grepl("^LO", neuropil),
+      "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+      "Deep / Superficial Bias\n(+: Distal / -: Proximal)"
+    )
+  )
+}
 
-boot_p3 <- read.xlsx(
-  boot_sheets_paths,
-  sheet = which(getSheetNames(boot_sheets_paths) == "type_putative_3")
+primary_y2_panel_specs <- data.frame(
+  hl_id = c(1, 2, 1, 2, 3),
+  neuropil = c("LO_R", "LO_R", "ME_R", "ME_R", "ME_R"),
+  stringsAsFactors = FALSE
 )
+primary_y2_panel_specs <- primary_y2_panel_specs[
+  primary_y2_panel_specs$hl_id %in% putative_hl_ids,
+]
 
-boot_p3$syn_type <- factor(
-  boot_p3$syn_type,
-  levels = c("pre", "post"),
-  labels = c("Presynapse", "Postsynapse")
+additional_y2_panel_specs <- do.call(rbind, lapply(
+  setdiff(putative_hl_ids, 1:3),
+  function(hl_id) {
+    data.frame(
+      hl_id = hl_id,
+      neuropil = c("LO_R", "ME_R"),
+      stringsAsFactors = FALSE
+    )
+  }
+))
+
+y2_panel_specs <- rbind(primary_y2_panel_specs, additional_y2_panel_specs)
+
+y2_boot <- lapply(
+  putative_hl_ids,
+  read_putative_boot
 )
+names(y2_boot) <- as.character(putative_hl_ids)
 
-Y2E <- dsplot(
-  boot_p3, "ME_R", "all"
-)
-Y2E
-
-Y2 <- list(Y2A, Y2B, Y2C, Y2D, Y2E, plot_spacer(), plot_spacer(), plot_spacer())
+Y2 <- lapply(seq_len(nrow(y2_panel_specs)), function(i) {
+  spec <- y2_panel_specs[i, ]
+  make_y2_panel(y2_boot[[as.character(spec$hl_id)]], spec$neuropil)
+})
+Y2 <- Filter(Negate(is.null), Y2)
 
 Y2_p <- wrap_plots(Y2, ncol = 2) +
   plot_annotation(tag_levels = 'a') &

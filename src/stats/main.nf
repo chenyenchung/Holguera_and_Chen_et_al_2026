@@ -316,7 +316,8 @@ workflow {
     'type_putative_7',
     'type_putative_8',
     'type_putative_9',
-    'subsystem_putative'
+    'subsystem_putative',
+    'spatial_all'
   ]
 
   // Create input channel

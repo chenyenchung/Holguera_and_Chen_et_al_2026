@@ -388,7 +388,11 @@ for (i in names(np_coord_list)) {
   }
   
   # Get groups to test
-  groups_to_test <- unique(test_data$group)
+  groups_to_test <- unique(as.character(test_data$group))
+  groups_to_test <- groups_to_test[!is.na(groups_to_test)]
+  if (preset$color_by == "spatial_origin") {
+    groups_to_test <- setdiff(groups_to_test, "unknown")
+  }
   
   # Perform bootstrap analysis for each group
   if (length(ref_superficial) > 0 && length(ref_deep) > 0 && length(groups_to_test) > 0) {

@@ -64,8 +64,10 @@ dsplot <- function(
   } else {
     title
   }
-  deep_col <- ifelse(grepl("^ME", neuropil), "#E6EDE8", "#D9D0E3")
-  sup_col <- ifelse(grepl("^ME", neuropil), "#D9D0E3", "#E6EDE8")
+  early_col <- "#0072B2"
+  late_col <- "#D55E00"
+  deep_col <- ifelse(grepl("^ME", neuropil), early_col, late_col)
+  sup_col <- ifelse(grepl("^ME", neuropil), late_col, early_col)
   plot_data <- stats |>
     filter(neuropil == {{ neuropil }}, split %in% {{ split }})
   if (is_spatial) {
@@ -349,7 +351,7 @@ Y2_p <- wrap_plots(Y2, ncol = 2) +
   plot_annotation(tag_levels = 'a') &
   theme(plot.tag = element_text(size = 9))
 
-ggsave(filename = "int/Supp_fig_Y2.pdf", plot = Y2_p, width = 8.5, height = 11)
+ggsave(filename = "int/Supp_fig_Y2.pdf", plot = Y2_p, width = 12, height = 15)
 
 ### Y3
 boot_fun <- read.xlsx(

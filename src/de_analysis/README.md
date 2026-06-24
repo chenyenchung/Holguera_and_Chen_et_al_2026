@@ -1,7 +1,7 @@
 # Deep/Superficial DE Analysis
 
-Runs P15 Seurat differential expression for right-hemisphere visual neuron
-types classified as superficial or deep in ME, LO, and LOP.
+Runs P15, P30, and P50 Seurat differential expression for right-hemisphere
+visual neuron types classified as superficial or deep in ME, LO, and LOP.
 
 ## Overview
 
@@ -10,12 +10,13 @@ The workflow has two stages:
 1. Type-depth bootstrap testing for every row in
    `data/visual_neurons_anno.csv` where `Confident_annotation == "Y"` and
    `ozel2021_cluster` is not missing.
-2. Seurat `FindMarkers()` contrasts using the P15 object at
-   `data/ozel_2021_objs/P15.rds`.
+2. Seurat `FindMarkers()` contrasts using stage objects under
+   `data/ozel_2021_objs/`.
 
-Depth tests run separately for `pre` and `post` synapse depths in `ME_R`,
-`LO_R`, and `LOP_R`. DE uses only types with `direction` equal to
-`superficial` or `deep` and `significant_fdr == TRUE`.
+Depth tests run once, separately for `pre` and `post` synapse depths in `ME_R`,
+`LO_R`, and `LOP_R`. DE then fans out over `P15`, `P30`, and `P50` and uses
+only types with `direction` equal to `superficial` or `deep` and
+`significant_fdr == TRUE`.
 
 ## Usage
 
@@ -37,7 +38,8 @@ nextflow run main.nf --n_bootstrap 10
 | `annf` | `data/visual_neurons_anno.csv` | Visual neuron annotations |
 | `metaf` | `data/viz_meta.csv` | Neuropil depth-axis metadata |
 | `ref_groupsf` | `data/reference_groups.csv` | Superficial/deep reference definitions |
-| `seuratf` | `data/ozel_2021_objs/P15.rds` | P15 Seurat object |
+| `seurat_obj_dir` | `data/ozel_2021_objs` | Directory containing stage Seurat objects |
+| `stages` | `P15,P30,P50` | Stage names matched to `<stage>.rds` files |
 | `sparse_limit` | `100` | Minimum synapses for a type-depth test |
 | `min_neurons` | `3` | Minimum neurons for a type-depth test |
 | `coefficient` | `0.5` | Depth-test threshold coefficient |
@@ -65,7 +67,8 @@ same contrast, it is removed from both groups and logged in the membership file.
 Published under `int/de_analysis/`:
 
 - `type_depth/`: per-neuropil/per-syn-type depth-test CSVs.
-- `markers/`: per-neuropil/per-syn-type DE marker CSVs and membership CSVs.
+- `markers/<stage>/`: per-stage, per-neuropil/per-syn-type DE marker CSVs and
+  membership CSVs.
 - `combined_type_depth.csv`: all type-depth rows.
 - `combined_de_membership.csv`: all contrast group definitions and skips.
 - `combined_de_markers.csv`: all successful Seurat marker results.

@@ -8,7 +8,7 @@ suppressPackageStartupMessages(library(Seurat))
 
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
-required_args <- c("depth", "seurat", "np", "syn_type")
+required_args <- c("stage", "depth", "seurat", "np", "syn_type")
 missing_args <- required_args[vapply(required_args, function(x) is.null(argvs[[x]]), logical(1))]
 if (length(missing_args) > 0) {
   stop("Missing required arguments: ", paste(missing_args, collapse = ", "))
@@ -47,6 +47,7 @@ make_empty_markers <- function() {
     pct.1 = numeric(),
     pct.2 = numeric(),
     p_val_adj = numeric(),
+    stage = character(),
     neuropil = character(),
     syn_type = character(),
     contrast = character(),
@@ -70,6 +71,7 @@ make_membership_row <- function(contrast, status, skip_reason = NA_character_,
                                 dropped_overlap = character(),
                                 n_cells_sup = NA_integer_, n_cells_deep = NA_integer_) {
   data.table(
+    stage = argvs$stage,
     neuropil = argvs$np,
     syn_type = argvs$syn_type,
     contrast = contrast,
@@ -219,6 +221,7 @@ for (i in seq_len(nrow(contrast_specs))) {
 
   markers_dt <- as.data.table(markers, keep.rownames = "gene")
   markers_dt[, `:=`(
+    stage = argvs$stage,
     neuropil = argvs$np,
     syn_type = argvs$syn_type,
     contrast = spec$contrast,
@@ -250,8 +253,8 @@ markers <- if (length(all_markers) > 0) {
   make_empty_markers()
 }
 
-membership_file <- sprintf("%s_%s_de_membership.csv", argvs$np, argvs$syn_type)
-markers_file <- sprintf("%s_%s_de_markers.csv", argvs$np, argvs$syn_type)
+membership_file <- sprintf("%s_%s_%s_de_membership.csv", argvs$stage, argvs$np, argvs$syn_type)
+markers_file <- sprintf("%s_%s_%s_de_markers.csv", argvs$stage, argvs$np, argvs$syn_type)
 fwrite(membership, membership_file)
 fwrite(markers, markers_file)
 

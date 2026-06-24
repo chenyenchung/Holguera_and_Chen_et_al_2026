@@ -71,9 +71,14 @@ if (nrow(depth) > 0) {
 if (nrow(membership) > 0) {
   cat("DE Membership\n")
   cat("-------------\n")
-  print(membership[, .N, by = .(neuropil, syn_type, contrast, status, skip_reason)][
-    order(neuropil, syn_type, contrast)
-  ])
+  membership_by <- intersect(
+    c("stage", "neuropil", "syn_type", "contrast", "status", "skip_reason"),
+    names(membership)
+  )
+  membership_summary <- membership[, .N, by = membership_by]
+  membership_order <- intersect(c("stage", "neuropil", "syn_type", "contrast"), names(membership_summary))
+  if (length(membership_order) > 0) setorderv(membership_summary, membership_order)
+  print(membership_summary)
   cat("\n")
 }
 
@@ -81,7 +86,8 @@ if (nrow(markers) > 0) {
   cat("Markers\n")
   cat("-------\n")
   cat("Rows:", nrow(markers), "\n")
-  cat("Contrasts tested:", uniqueN(paste(markers$neuropil, markers$syn_type, markers$contrast, sep = "|")), "\n")
+  contrast_cols <- intersect(c("stage", "neuropil", "syn_type", "contrast"), names(markers))
+  cat("Contrasts tested:", uniqueN(do.call(paste, c(markers[, ..contrast_cols], sep = "|"))), "\n")
   if ("p_val_adj" %in% names(markers)) {
     sig <- markers[p_val_adj < 0.05]
     cat("Genes with adjusted p < 0.05:", nrow(sig), " / ", nrow(markers),

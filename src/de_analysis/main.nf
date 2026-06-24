@@ -3,7 +3,8 @@
 params.annf = 'data/visual_neurons_anno.csv'
 params.metaf = 'data/viz_meta.csv'
 params.ref_groupsf = 'data/reference_groups.csv'
-params.seuratf = 'data/ozel_2021_objs/P15.rds'
+params.seurat_obj_dir = 'data/ozel_2021_objs'
+params.stages = ['P15', 'P30', 'P50']
 params.broad_depth_cppf = 'src/stats/bin/broad_depth.cpp'
 params.sparse_limit = 100
 params.min_neurons = 3
@@ -58,16 +59,16 @@ process SeuratDE {
   module 'r/4.5.1'
 
   input:
-  tuple val(np), val(stype), path(depth_csv)
-  path seurat_obj
+  tuple val(stage), val(np), val(stype), path(depth_csv), path(seurat_obj)
   val min_cells
 
   output:
-  tuple val("${np}"), val("${stype}"), path("*_de_markers.csv"), path("*_de_membership.csv")
+  tuple val("${stage}"), val("${np}"), val("${stype}"), path("*_de_markers.csv"), path("*_de_membership.csv")
 
   script:
   """
   seurat_de.r \
+    --stage ${stage} \
     --depth ${depth_csv} \
     --seurat ${seurat_obj} \
     --np ${np} \
@@ -108,6 +109,9 @@ workflow {
   def NP = ['ME_R', 'LO_R', 'LOP_R']
   def STYPE = ['pre', 'post']
   def MAT_PREFIX = 'int/idv_mat/'
+  def STAGES = params.stages instanceof CharSequence
+    ? params.stages.split(/[,;]/).collect { it.trim() }.findAll { it }
+    : params.stages
 
   cond_ch = channel
     .fromList(NP)
@@ -128,16 +132,23 @@ workflow {
     params.conf_int
   )
 
+  stage_ch = channel
+    .fromList(STAGES)
+    .map { stage -> [stage, file("${params.seurat_obj_dir}/${stage}.rds")] }
+
+  de_input_ch = depth_ch
+    .combine(stage_ch)
+    .map { np, stype, depth_csv, stage, seurat_obj -> [stage, np, stype, depth_csv, seurat_obj] }
+
   de_ch = SeuratDE(
-    depth_ch,
-    file(params.seuratf),
+    de_input_ch,
     params.min_cells
   )
 
   combined_ch = CombineDEResults(
     depth_ch.map { it -> it[2] }.collect(),
-    de_ch.map { it -> it[2] }.collect(),
-    de_ch.map { it -> it[3] }.collect()
+    de_ch.map { it -> it[3] }.collect(),
+    de_ch.map { it -> it[4] }.collect()
   )
 
   publish:
@@ -157,7 +168,7 @@ output {
   }
   de_results {
     path { input ->
-      return "de_analysis/markers/${input[0]}_${input[1]}"
+      return "de_analysis/markers/${input[0]}/${input[1]}_${input[2]}"
     }
   }
   combined_markers { path "de_analysis/" }

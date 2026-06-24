@@ -58,7 +58,7 @@ Rscript src/manual_visualize.r \
 
 - Purpose: assemble supplementary deep/superficial bias figure panels
 - Key input: `int/stats/deep_superficial/combined_broad_depth_results.xlsx`
-- Outputs: `int/Supp_fig_Y1.pdf`, `int/Supp_fig_Y2.pdf`, `int/Supp_fig_Y3.pdf`, `int/Supp_fig_Y4.pdf`
+- Outputs: `int/Supp_fig_Y1.pdf`, `int/Supp_fig_Y2.pdf`, `int/Supp_fig_Y3.pdf`, `int/Supp_fig_Y4.pdf`, `int/Supp_fig_Y6.pdf`
 
 ## Top-level helper scripts
 

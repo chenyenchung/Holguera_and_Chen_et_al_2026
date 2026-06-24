@@ -45,17 +45,43 @@ dsplot <- function(
     "LOP_R" = "'Lobula Plate'~",
     "LO_R" = "'Lobula'~"
   )
+  spatial_groups <- c(
+    "Vsx", "Optix", "Dpp",
+    "Vsx/Optix", "Vsx/Dpp", "Optix/Dpp",
+    "Vsx/Optix/Dpp"
+  )
+  uval <- unique(stats$types_of_interest[stats$neuropil == neuropil])
+  is_spatial <- any(uval %in% spatial_groups)
+  plot_title <- if (missing(title)) {
+    paste0(
+      np_lut[[neuropil]],
+      ifelse(
+        length(split) == 1,
+        ifelse(is_spatial && split == "all", "'Spatial'~'Origin'~'Neurons'", glossary[[split]]),
+        "'Projection'~'Neurons'"
+      )
+    )
+  } else {
+    title
+  }
   deep_col <- ifelse(grepl("^ME", neuropil), "#E6EDE8", "#D9D0E3")
   sup_col <- ifelse(grepl("^ME", neuropil), "#D9D0E3", "#E6EDE8")
+  plot_data <- stats |>
+    filter(neuropil == {{ neuropil }}, split %in% {{ split }})
+  if (is_spatial) {
+    plot_data$types_of_interest <- factor(
+      plot_data$types_of_interest,
+      levels = spatial_groups[spatial_groups %in% unique(plot_data$types_of_interest)]
+    )
+  }
   
   pad_width <- max(
-    length(unique(stats$types_of_interest[stats$neuropil == neuropil & stats$split %in% split])) + 1,
-    nlevels(stats$types_of_interest) + 1
+    length(unique(plot_data$types_of_interest)) + 1,
+    ifelse(is.factor(plot_data$types_of_interest), nlevels(plot_data$types_of_interest), 0) + 1
   )
   
   
-  p <- stats |>
-    filter(neuropil == {{ neuropil }}, split %in% {{ split }}) %>%
+  p <- plot_data %>%
     ggplot(aes(x = types_of_interest, color = types_of_interest)) +
     annotate(
       geom = "rect",
@@ -100,16 +126,11 @@ dsplot <- function(
     guides(color = "none") +
     labs(
       y = ylab,
-      title = parse(text = paste0(
-        np_lut[[neuropil]],
-        ifelse(length(split) == 1, glossary[[split]], "'Projection'~'Neurons'")
-        )
-      )
+      title = parse(text = plot_title)
     ) +
     scale_x_discrete(drop = FALSE) +
     scale_y_continuous(limits = c(-1, star_location + 0.1))
   
-  uval <- unique(stats$types_of_interest[stats$neuropil == neuropil])
   tws <- c("Hth", "Hth/Opa", "Opa/Erm", "Erm/Ey", "Ey/Hbn", "Hbn/Opa/Slp", "Slp/D", "D/BH-1")
   is_temporal <- any(uval %in% tws)
   
@@ -126,6 +147,8 @@ dsplot <- function(
     } else {
       if (is_subsystem) {
         p <- p + scale_color_subsystem()
+      } else if (is_spatial) {
+        p <- p + scale_color_spatial_origin()
       } else {
         p <- p + scale_color_type()
       }
@@ -466,3 +489,50 @@ Y4_p <- wrap_plots(Y4, ncol = 3) +
   theme(plot.tag = element_text(size = 9))
 
 ggsave(filename = "int/Supp_fig_Y4.pdf", plot = Y4_p, width = 8.5, height = 11)
+
+### Y6
+spatial_sheet_idx <- which(getSheetNames(boot_sheets_paths) == "spatial_all")
+if (length(spatial_sheet_idx) != 1) {
+  stop("Cannot find required worksheet: spatial_all")
+}
+
+boot_spatial <- read.xlsx(
+  boot_sheets_paths,
+  sheet = spatial_sheet_idx
+)
+
+boot_spatial$syn_type <- factor(
+  boot_spatial$syn_type,
+  levels = c("pre", "post"),
+  labels = c("Presynapse", "Postsynapse")
+)
+
+Y6A <- dsplot(
+  boot_spatial, "ME_R", "all"
+)
+Y6A
+
+Y6B <- dsplot(
+  boot_spatial, "LO_R", "all",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
+Y6B
+
+Y6C <- dsplot(
+  boot_spatial, "LOP_R", "all",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
+Y6C
+
+Y6 <- list(
+  Y6A, Y6B, Y6C,
+  plot_spacer(),
+  plot_spacer(),
+  plot_spacer()
+)
+
+Y6_p <- wrap_plots(Y6, ncol = 3) +
+  plot_annotation(tag_levels = 'a') &
+  theme(plot.tag = element_text(size = 9))
+
+ggsave(filename = "int/Supp_fig_Y6.pdf", plot = Y6_p, width = 8.5, height = 4)

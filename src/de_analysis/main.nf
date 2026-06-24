@@ -104,6 +104,26 @@ process CombineDEResults {
   """
 }
 
+process VolcanoPlots {
+  cpus 1
+  memory '8GB'
+  time '30m'
+  module 'r/4.5.1'
+
+  input:
+  path markers_csv
+
+  output:
+  path "volcano_plots/*", emit: plots
+
+  script:
+  """
+  volcano_plots.r \
+    --markers ${markers_csv} \
+    --out_dir volcano_plots
+  """
+}
+
 workflow {
   main:
   def NP = ['ME_R', 'LO_R', 'LOP_R']
@@ -151,6 +171,8 @@ workflow {
     de_ch.map { it -> it[4] }.collect()
   )
 
+  volcano_ch = VolcanoPlots(combined_ch.markers)
+
   publish:
   depth_results = depth_ch
   de_results = de_ch
@@ -158,6 +180,7 @@ workflow {
   combined_membership = combined_ch.membership
   combined_depth = combined_ch.depth
   summary = combined_ch.summary
+  volcano_plots = volcano_ch.plots
 }
 
 output {
@@ -175,4 +198,5 @@ output {
   combined_membership { path "de_analysis/" }
   combined_depth { path "de_analysis/" }
   summary { path "de_analysis/" }
+  volcano_plots { path "de_analysis/volcano_plots/" }
 }

@@ -158,13 +158,28 @@ plot_panel <- function(panel_counts) {
 
   max_count <- max(panel_counts$count, na.rm = TRUE)
   fill_limits <- c(1, max(1, max_count))
+  log_fill_limits <- log10(fill_limits)
+  fill_palette <- col_numeric(
+    palette = viridisLite::magma(256),
+    domain = log_fill_limits,
+    na.color = "grey95"
+  )
+  tile_colors <- fill_palette(log10(panel_counts$fill_count))
+  tile_rgb <- t(grDevices::col2rgb(tile_colors) / 255)
+  tile_luminance <- 0.2126 * tile_rgb[, 1] + 0.7152 * tile_rgb[, 2] + 0.0722 * tile_rgb[, 3]
+  panel_counts[
+    ,
+    label_color := fifelse(tile_luminance > 0.5, "black", "white")
+  ]
 
   ggplot(panel_counts, aes(x = temporal_origin, y = spatial_origin, fill = fill_count)) +
     geom_tile(color = "white", linewidth = 0.35) +
-    geom_text(aes(label = ifelse(count > 0, count, "")), size = 2.4, color = "black") +
-    scale_fill_gradient(
-      low = "#F7FBFF",
-      high = "#08519C",
+    geom_text(
+      aes(label = ifelse(count > 0, count, ""), color = label_color),
+      size = 2.4
+    ) +
+    scale_fill_viridis_c(
+      option = "magma",
       trans = "log10",
       limits = fill_limits,
       oob = squish,
@@ -172,6 +187,7 @@ plot_panel <- function(panel_counts) {
       labels = label_number(),
       name = "Synapse\ncount"
     ) +
+    scale_color_identity() +
     labs(
       title = paste(np, toupper(syn_type), sep = " "),
       x = "Temporal origin",

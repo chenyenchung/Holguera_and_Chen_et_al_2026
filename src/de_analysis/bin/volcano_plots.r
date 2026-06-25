@@ -2,6 +2,7 @@
 script_file <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE)[1])
 repo_root <- normalizePath(file.path(dirname(script_file), "../../.."), mustWork = TRUE)
 renv::load(repo_root)
+source(file.path(repo_root, "src/utils.r"), chdir = FALSE)
 suppressPackageStartupMessages(library(R.utils))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(ggplot2))
@@ -61,10 +62,7 @@ safe_name <- function(x) {
   gsub("[^A-Za-z0-9_.-]+", "_", x)
 }
 
-early_late_colors <- c(
-  Early = "#0072B2",
-  Late = "#D55E00"
-)
+early_late_colors <- ih2025_colors()
 
 depth_to_temporal <- function(neuropil, depth_group) {
   if (grepl("^ME", neuropil)) {

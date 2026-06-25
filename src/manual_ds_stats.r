@@ -26,9 +26,11 @@ boot$syn_type <- factor(
   labels = c("Presynapse", "Postsynapse")
 )
 
+ds_ribbon_alpha <- 0.1
+
 # General plotting
 dsplot <- function(
-    stats, neuropil, split, title, bg_alpha = 0.5,
+    stats, neuropil, split, title, bg_alpha = ds_ribbon_alpha,
     star_size = 4, star_location = 1.15,
     ylab = "Deep / Superficial Bias\n(+: Distal / -: Proximal)"
   ) {
@@ -64,8 +66,9 @@ dsplot <- function(
   } else {
     title
   }
-  early_col <- "#0072B2"
-  late_col <- "#D55E00"
+  broad_temporal_colors <- ih2025_colors()
+  early_col <- broad_temporal_colors[["Early"]]
+  late_col <- broad_temporal_colors[["Late"]]
   deep_col <- ifelse(grepl("^ME", neuropil), early_col, late_col)
   sup_col <- ifelse(grepl("^ME", neuropil), late_col, early_col)
   plot_data <- stats |>

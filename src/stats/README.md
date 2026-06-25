@@ -48,12 +48,13 @@ enormous number of synapses.
 
 ### 3. OPC Synapse Ratio Analysis
 - Computes the fraction of lobula (LO) synapses whose presynaptic or
-  postsynaptic cell type is marked as `putative_OPC` in
-  `data/visual_neurons_anno.csv`
+  postsynaptic cell type has `Confident_annotation == "Y"` or is marked as
+  `putative_OPC` in `data/visual_neurons_anno.csv`
 - Reports presynaptic and postsynaptic ratios separately for `LO_L` and `LO_R`
 - Writes `LO_opc_synapse_ratio.csv` with columns:
   `neuropil`, `side`, `syn_type`, `opc_synapse_count`,
-  `total_synapse_count`, `opc_synapse_ratio`, `n_putative_opc_types`
+  `total_synapse_count`, `opc_synapse_ratio`, `n_opc_types`,
+  `n_confident_annotation_types`, `n_putative_opc_types`, `n_overlap_types`
 
 ### 4. Reference Depth Calibration
 - Plots the PC3/z depth distributions of the superficial and deep reference

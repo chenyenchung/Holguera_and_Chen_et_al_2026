@@ -31,7 +31,7 @@ is_true <- function(x) {
   tolower(trimws(as.character(x))) %in% c("true", "t", "1", "yes", "y")
 }
 
-analyze_synapse_file <- function(syn_path, neuropil, opc_types) {
+analyze_synapse_file <- function(syn_path, neuropil, opc_summary) {
   syn <- fread(syn_path, select = c("pre_type", "post_type"))
   validate_columns(syn, c("pre_type", "post_type"), syn_path)
 
@@ -43,11 +43,14 @@ analyze_synapse_file <- function(syn_path, neuropil, opc_types) {
     side = side,
     syn_type = c("pre", "post"),
     opc_synapse_count = c(
-      sum(syn$pre_type %chin% opc_types),
-      sum(syn$post_type %chin% opc_types)
+      sum(syn$pre_type %chin% opc_summary$opc_types),
+      sum(syn$post_type %chin% opc_summary$opc_types)
     ),
     total_synapse_count = total_synapses,
-    n_putative_opc_types = length(opc_types)
+    n_opc_types = length(opc_summary$opc_types),
+    n_confident_annotation_types = length(opc_summary$confident_types),
+    n_putative_opc_types = length(opc_summary$putative_types),
+    n_overlap_types = length(opc_summary$overlap_types)
   )[
     ,
     opc_synapse_ratio := fifelse(
@@ -64,7 +67,10 @@ analyze_synapse_file <- function(syn_path, neuropil, opc_types) {
       opc_synapse_count,
       total_synapse_count,
       opc_synapse_ratio,
-      n_putative_opc_types
+      n_opc_types,
+      n_confident_annotation_types,
+      n_putative_opc_types,
+      n_overlap_types
     )
   ]
 }
@@ -79,20 +85,37 @@ output_file <- if (is.null(argvs$output) || argvs$output == "") {
 }
 
 anno <- fread(ann_path)
-validate_columns(anno, c("cell_type", "putative_OPC"), ann_path)
+validate_columns(anno, c("cell_type", "Confident_annotation", "putative_OPC"), ann_path)
 
-opc_types <- anno[is_true(putative_OPC), unique(cell_type)]
+confident_types <- anno[Confident_annotation == "Y", unique(cell_type)]
+putative_types <- anno[is_true(putative_OPC), unique(cell_type)]
+overlap_types <- intersect(confident_types, putative_types)
+opc_types <- union(confident_types, putative_types)
+
 if (length(opc_types) == 0) {
-  stop(sprintf("No putative OPC cell types found in %s", ann_path))
+  stop(sprintf(
+    "No OPC cell types found with Confident_annotation == 'Y' or putative_OPC == TRUE in %s",
+    ann_path
+  ))
 }
 
+opc_summary <- list(
+  opc_types = opc_types,
+  confident_types = confident_types,
+  putative_types = putative_types,
+  overlap_types = overlap_types
+)
+
 results <- rbindlist(list(
-  analyze_synapse_file(lo_l_path, "LO_L", opc_types),
-  analyze_synapse_file(lo_r_path, "LO_R", opc_types)
+  analyze_synapse_file(lo_l_path, "LO_L", opc_summary),
+  analyze_synapse_file(lo_r_path, "LO_R", opc_summary)
 ))
 
 fwrite(results, output_file)
 
 cat("OPC synapse ratio results written to:", output_file, "\n")
-cat("Putative OPC types:", length(opc_types), "\n")
+cat("OPC types:", length(opc_types), "\n")
+cat("Confident annotation types:", length(confident_types), "\n")
+cat("Putative OPC types:", length(putative_types), "\n")
+cat("Overlap types:", length(overlap_types), "\n")
 cat("Rows:", nrow(results), "\n")

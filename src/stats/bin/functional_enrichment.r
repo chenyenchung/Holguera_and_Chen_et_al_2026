@@ -312,23 +312,6 @@ calc_prop_ci <- function(x, n, conf.level = 0.95) {
   return(c(ci_lower, ci_upper))
 }
 
-format_pvalue <- function(value) {
-  if (length(value) == 0 || !is.finite(value)) return("NA")
-  if (value < 0.001) return("<0.001")
-  return(sprintf("%.3f", value))
-}
-
-format_plot_qvalue <- function(result_row) {
-  if (
-    is.null(result_row) ||
-    !is.na(result_row$skip_reason) ||
-    !is.finite(result_row$p_fdr)
-  ) {
-    return("NT")
-  }
-  return(format_pvalue(result_row$p_fdr))
-}
-
 # ============================================================================
 # MODULAR ANALYSIS FUNCTIONS
 # ============================================================================
@@ -776,53 +759,9 @@ create_notch_plot <- function(plot_data, test_results, subsys, pval_df = NULL) {
   return(p)
 }
 
-make_temporal_plot_subtitle <- function(pval_df, subsys) {
-  notch_labels <- c("Notch Off" = "N-", "Notch On" = "N+")
-  annotation_lines <- Map(
-    function(notch_status, notch_label) {
-
-      get_result <- function(test_type) {
-        idx <- which(
-          pval_df$test_type == test_type &
-            pval_df$subsystem == subsys &
-            pval_df$notch_status == notch_status
-        )
-        if (length(idx) == 0) return(NULL)
-        pval_df[idx[1], , drop = FALSE]
-      }
-
-      fisher_row <- get_result("Temporal")
-      trend_row <- get_result("Cochran_Armitage")
-      runs_row <- get_result("Wald_Wolfowitz")
-      trend_direction <- if (
-        is.null(trend_row) ||
-        !is.na(trend_row$skip_reason) ||
-        is.na(trend_row$direction)
-      ) {
-        "NT"
-      } else {
-        tolower(trend_row$direction)
-      }
-
-      paste0(
-        notch_label, ": Fisher q=", format_plot_qvalue(fisher_row),
-        "; trend q=", format_plot_qvalue(trend_row),
-        " (", trend_direction, ")",
-        "; clustering q=", format_plot_qvalue(runs_row)
-      )
-    },
-    names(notch_labels),
-    unname(notch_labels)
-  )
-
-  return(paste(unlist(annotation_lines), collapse = "\n"))
-}
-
 # Create temporal plot with separate Notch Off and Notch On facets.
 create_temporal_faceted_plot <- function(
-    plot_data, subsys, pval_df = NULL) {
-  subtitle <- make_temporal_plot_subtitle(pval_df, subsys)
-
+    plot_data, subsys) {
   p <- ggplot(plot_data, aes(x = temporal_label, y = prop)) +
     geom_col(
       aes(fill = fill_color),
@@ -836,7 +775,6 @@ create_temporal_faceted_plot <- function(
     ) +
     labs(
       title = subsys,
-      subtitle = subtitle,
       x = "Temporal Origin",
       y = "Proportion of neurons",
       fill = paste("Involved in\n", subsys)
@@ -857,13 +795,103 @@ create_temporal_faceted_plot <- function(
       axis.title.x = element_blank(),
       axis.text = element_text(size = 12),
       axis.title = element_text(size = 16),
-      plot.subtitle = element_text(size = 10, color = "grey30"),
       strip.text = element_text(size = 13),
       legend.title = element_text(size = 12),
       legend.text = element_text(size = 10)
     )
   
   return(p)
+}
+
+make_sig_stars <- function(q_value) {
+  case_when(
+    !is.finite(q_value) ~ "",
+    q_value < 0.001 ~ "***",
+    q_value < 0.01 ~ "**",
+    q_value < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+}
+
+prepare_temporal_test_heatmap_data <- function(pval_df, subsystems) {
+  if (is.null(pval_df) || nrow(pval_df) == 0) {
+    return(data.frame())
+  }
+
+  test_labels <- c(
+    Temporal = "Fisher",
+    Cochran_Armitage = "Temporal Trend",
+    Wald_Wolfowitz = "Temporal Clustering"
+  )
+  test_levels <- unname(test_labels)
+  notch_levels <- c("Notch Off", "Notch On")
+
+  heatmap_data <- pval_df %>%
+    filter(
+      test_type %in% names(test_labels),
+      notch_status %in% notch_levels
+    ) %>%
+    mutate(
+      test_class = factor(test_labels[test_type], levels = rev(test_levels)),
+      subsystem = factor(subsystem, levels = subsystems),
+      notch_status = factor(notch_status, levels = notch_levels),
+      neg_log10_q = if_else(
+        is.finite(p_fdr),
+        -log10(pmax(p_fdr, .Machine$double.xmin)),
+        NA_real_
+      ),
+      sig_star = make_sig_stars(p_fdr),
+      trend_direction = if_else(
+        test_type == "Cochran_Armitage" &
+          direction %in% c("Early", "Late") &
+          is.na(skip_reason),
+        direction,
+        NA_character_
+      )
+    )
+
+  return(heatmap_data)
+}
+
+create_temporal_test_heatmap <- function(heatmap_data) {
+  trend_label_data <- heatmap_data %>%
+    filter(!is.na(trend_direction))
+
+  ggplot(heatmap_data, aes(x = subsystem, y = test_class)) +
+    geom_tile(aes(fill = neg_log10_q), color = "white", linewidth = 0.4) +
+    geom_text(aes(label = sig_star), size = 6, color = "black", vjust = 0.35) +
+    geom_text(
+      data = trend_label_data,
+      aes(label = trend_direction, color = trend_direction),
+      size = 3.2,
+      fontface = "bold",
+      vjust = 1.9,
+      show.legend = FALSE
+    ) +
+    facet_wrap(
+      ~notch_status,
+      ncol = 1,
+      labeller = as_labeller(c("Notch Off" = "N-", "Notch On" = "N+"))
+    ) +
+    scale_fill_viridis_c(
+      name = expression(-log[10]("FDR q")),
+      option = "magma",
+      na.value = "grey90"
+    ) +
+    scale_color_ih2025() +
+    labs(
+      x = "Functional Subsystem",
+      y = "Test Class"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+      axis.text = element_text(size = 12),
+      axis.title = element_text(size = 16),
+      strip.text = element_text(size = 13),
+      legend.position = "right",
+      panel.grid = element_blank()
+    )
 }
 
 # ============================================================================
@@ -1010,10 +1038,14 @@ for (subsys in names(all_test_results)) {
   # Create Notch-faceted temporal plot with FDR-corrected p-values
   if (!is.null(plot_data$temporal)) {
     temporal_faceted_plots[[subsys]] <- create_temporal_faceted_plot(
-      plot_data$temporal, subsys, pval_df
+      plot_data$temporal, subsys
     )
   }
 }
+
+temporal_test_heatmap_data <- prepare_temporal_test_heatmap_data(
+  pval_df, subsystems
+)
 
 # ============================================================================
 # SAVE ALL PLOTS
@@ -1053,6 +1085,18 @@ if (length(temporal_faceted_plots) > 0) {
     height = 5 * length(temporal_faceted_plots)
   )
   message(sprintf("Saved Notch-faceted temporal plots to: %s", outfn))
+}
+
+# Save two-panel temporal test heatmap
+if (nrow(temporal_test_heatmap_data) > 0) {
+  outfn <- "functional_subsystems_temporal_by_notch_test_heatmap.pdf"
+  create_temporal_test_heatmap(temporal_test_heatmap_data)
+  ggsave(
+    outfn,
+    width = 12,
+    height = 5
+  )
+  message(sprintf("Saved temporal test heatmap to: %s", outfn))
 }
 
 # Create separated plots for comparison

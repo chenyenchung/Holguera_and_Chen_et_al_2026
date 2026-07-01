@@ -16,7 +16,7 @@ if (file.exists("./utils.r")) {
 }
 
 if (is.null(argvs$syn) || !file.exists(argvs$syn)) {
-  stop("Cannot find the csv file containing synases.")
+  stop("Cannot find the csv file containing synapses.")
 }
 
 if (is.null(argvs$ann) || !file.exists(argvs$ann)) {
@@ -44,7 +44,7 @@ message(
 )
 
 message(
-  "Filering the synapse table assuming neuropil membership is in\n",
+  "Filtering the synapse table assuming neuropil membership is in\n",
   "a column named 'neuropil'."
 )
 syn_coord <- fread(argvs$syn)

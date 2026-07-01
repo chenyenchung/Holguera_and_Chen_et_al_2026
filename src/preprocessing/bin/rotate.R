@@ -14,7 +14,7 @@ if (interactive()) {
 }
 
 if (is.null(argvs$syn) || !file.exists(argvs$syn)) {
-  stop("Cannot find the csv file containing synases.")
+  stop("Cannot find the csv file containing synapses.")
 }
 
 np <- fread(argvs$syn)

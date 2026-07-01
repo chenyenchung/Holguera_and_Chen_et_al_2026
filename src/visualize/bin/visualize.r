@@ -11,6 +11,10 @@ options("ggrastr.default.dpi" = 450)
 
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
+parse_bool <- function(x, default = FALSE) {
+  if (is.null(x) || is.na(x)) return(default)
+  tolower(as.character(x)) %in% c("true", "t", "1", "yes", "y")
+}
 
 ### TODO
 if (interactive()) {
@@ -24,12 +28,14 @@ if (interactive()) {
   argvs$preset <- "data/viz_preset.csv"
   argvs$subsample <- 10000L
   argvs$sparse_limit <- 100L
+  argvs$use_axis_limits <- TRUE
   syn_path <- file.path("int/idv_mat/", paste0(argvs$np, "_rotated.csv.gz"))
 } else {
   argvs$subsample <- as.integer(argvs$subsample)
   argvs$sparse_limit <- as.integer(argvs$sparse_limit)
   syn_path <- argvs$synf
 }
+argvs$use_axis_limits <- parse_bool(argvs$use_axis_limits, default = TRUE)
 
 # Source utility functions (soft-linked by Nextflow)
 if (file.exists("./utils.r")) {
@@ -87,6 +93,24 @@ scale_axis_1 <- get(plot_meta$axis_1_func)
 scale_axis_2 <- get(plot_meta$axis_2_func)
 x_axis <- paste(argvs$syn_type, plot_meta$x_axis, sep = "_")
 y_axis <- paste(argvs$syn_type, plot_meta$y_axis, sep = "_")
+axis_1_limits <- c(plot_meta$min1, plot_meta$max1)
+axis_2_limits <- c(plot_meta$min2, plot_meta$max2)
+if (grepl("reverse", plot_meta$axis_1_func)) {
+  axis_1_limits <- rev(axis_1_limits)
+}
+if (grepl("reverse", plot_meta$axis_2_func)) {
+  axis_2_limits <- rev(axis_2_limits)
+}
+axis_scales <- function() {
+  if (argvs$use_axis_limits) {
+    list(
+      scale_axis_1(limits = axis_1_limits),
+      scale_axis_2(limits = axis_2_limits)
+    )
+  } else {
+    list(scale_axis_1(), scale_axis_2())
+  }
+}
 if (preset$color_by == "cell_type") {
   preset$color_by <- paste0(argvs$syn_type, "_type")
 }
@@ -176,22 +200,7 @@ for (i in names(np_coord)) {
     argvs$np, argvs$syn_type, argvs$use_preset, argvs$density, i,
     sep = "_"
   )
-  
-  if (grepl("reverse", plot_meta$axis_1_func)) {
-    min1 <- plot_meta$max1
-    max1 <- plot_meta$min1
-    plot_meta$min1 <- min1
-    plot_meta$max1 <- max1
-  }
-  if (grepl("reverse", plot_meta$axis_2_func)) {
-    min2 <- plot_meta$max2
-    max2 <- plot_meta$min2
-    plot_meta$min2 <- min2
-    plot_meta$max2 <- max2
-  }
-  
-  
-  
+
   ## Generate the dot plot
   if (preset$do_highlight) {
     dotp <- np_coord[[i]] |>
@@ -209,8 +218,7 @@ for (i in names(np_coord)) {
   dotp <- dotp +
     labs(color = preset$color_guide) +
     theme_ih2025() +
-    scale_axis_1(limits = c(plot_meta$min1, plot_meta$max1)) +
-    scale_axis_2(limits = c(plot_meta$min2, plot_meta$max2)) +
+    axis_scales() +
     color_func()
   
   ## Extract legends to prevent layout fluctuation

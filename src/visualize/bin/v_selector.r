@@ -11,6 +11,11 @@ options("ggrastr.default.dpi" = 450)
 
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
+parse_bool <- function(x, default = FALSE) {
+  if (is.null(x) || is.na(x)) return(default)
+  tolower(as.character(x)) %in% c("true", "t", "1", "yes", "y")
+}
+
 # Source utility functions (soft-linked by Nextflow)
 if (file.exists("./utils.r")) {
   source("./utils.r", chdir = FALSE)
@@ -25,6 +30,7 @@ if (interactive()) {
   argvs$density <- "asis"
   argvs$subsample <- 10000L
   argvs$sparse_limit <- 100L
+  argvs$use_axis_limits <- TRUE
   source("./src/utils.r")
   syn_path <- file.path("int/idv_mat/", paste0(argvs$np, "_rotated.csv.gz"))
 } else {
@@ -32,6 +38,7 @@ if (interactive()) {
   argvs$sparse_limit <- as.integer(argvs$sparse_limit)
   syn_path <- argvs$synf
 }
+argvs$use_axis_limits <- parse_bool(argvs$use_axis_limits, default = TRUE)
 
 
 ## Load plot metadata and presets with validation
@@ -51,6 +58,24 @@ x_axis <- paste(argvs$syn_type, plot_meta$x_axis, sep = "_")
 y_axis <- paste(argvs$syn_type, plot_meta$y_axis, sep = "_")
 scale_axis_1 <- get(plot_meta$axis_1_func)
 scale_axis_2 <- get(plot_meta$axis_2_func)
+axis_1_limits <- c(plot_meta$min1, plot_meta$max1)
+axis_2_limits <- c(plot_meta$min2, plot_meta$max2)
+if (grepl("reverse", plot_meta$axis_1_func)) {
+  axis_1_limits <- rev(axis_1_limits)
+}
+if (grepl("reverse", plot_meta$axis_2_func)) {
+  axis_2_limits <- rev(axis_2_limits)
+}
+axis_scales <- function() {
+  if (argvs$use_axis_limits) {
+    list(
+      scale_axis_1(limits = axis_1_limits),
+      scale_axis_2(limits = axis_2_limits)
+    )
+  } else {
+    list(scale_axis_1(), scale_axis_2())
+  }
+}
 color_func <- function() {
   f <- scale_color_manual(
     values = c(
@@ -129,21 +154,7 @@ for (i in ts_symbols) {
     message(sprintf("Skipping %s: no expressing synapses in either Notch population", i))
     next
   }
-  
-  if (grepl("reverse", plot_meta$axis_1_func)) {
-    min1 <- plot_meta$max1
-    max1 <- plot_meta$min1
-    plot_meta$min1 <- min1
-    plot_meta$max1 <- max1
-  }
-  if (grepl("reverse", plot_meta$axis_2_func)) {
-    min2 <- plot_meta$max2
-    max2 <- plot_meta$min2
-    plot_meta$min2 <- min2
-    plot_meta$max2 <- max2
-  }
-  
-  
+
   # Generate plots only if they have data
   if (has_notch_on) {
     ## Generate Notch On plot
@@ -153,8 +164,7 @@ for (i in ts_symbols) {
       labs(color = "Notch Status") +
       theme_ih2025() +
       color_func() +
-      scale_axis_1(limits = c(plot_meta$min1, plot_meta$max1)) +
-      scale_axis_2(limits = c(plot_meta$min2, plot_meta$max2)) +
+      axis_scales() +
       theme(legend.position="none")
   }
   
@@ -166,8 +176,7 @@ for (i in ts_symbols) {
       labs(color = "Notch Status") +
       theme_ih2025() +
       color_func() +
-      scale_axis_1(limits = c(plot_meta$min1, plot_meta$max1)) +
-      scale_axis_2(limits = c(plot_meta$min2, plot_meta$max2)) +
+      axis_scales() +
       theme(legend.position="none")
   }
   

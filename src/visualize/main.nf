@@ -6,6 +6,7 @@ params.tff = 'data/P15_tf.csv'
 params.camf = 'data/P15_CAM.csv'
 params.tsf = 'data/selectors.csv'
 params.distances = 'data/TypeToTypeDistances.csv'
+params.use_axis_limits = true
 
 process Visualize {
   cpus '1'
@@ -21,6 +22,7 @@ process Visualize {
   path utils
   val subsample
   val slimit
+  val use_axis_limits
 
   output:
   tuple val("${np}"), val("${preset}"), path('*.pdf'), optional: true
@@ -38,7 +40,8 @@ process Visualize {
     --preset ${presetf} \
     --utils ${utils} \
     --subsample ${subsample} \
-    --sparse_limit ${slimit}
+    --sparse_limit ${slimit} \
+    --use_axis_limits ${use_axis_limits}
   """
 }
 
@@ -55,6 +58,7 @@ process VisualizeSelector {
   path utils
   val subsample
   val slimit
+  val use_axis_limits
 
   output:
   tuple val("${np}"), val("${gselection}"), path('*.pdf'), optional: true
@@ -71,7 +75,8 @@ process VisualizeSelector {
     --meta ${meta} \
     --utils ${utils} \
     --subsample ${subsample} \
-    --sparse_limit ${slimit}
+    --sparse_limit ${slimit} \
+    --use_axis_limits ${use_axis_limits}
   """
 }
 
@@ -184,7 +189,8 @@ workflow {
     file(params.presetf),
     utils_file,
     SUBSAMPLE_TO,
-    SPARSE_LIMIT
+    SPARSE_LIMIT,
+    params.use_axis_limits
   )
   
 
@@ -216,7 +222,8 @@ workflow {
 //    file(params.metaf),
 //    utils_file,
 //    SUBSAMPLE_TO,
-//    SPARSE_LIMIT
+//    SPARSE_LIMIT,
+//    params.use_axis_limits
 //  )
 //
 //  tree_ch = SimilarityTree(

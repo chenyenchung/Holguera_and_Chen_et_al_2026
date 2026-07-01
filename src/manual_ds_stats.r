@@ -32,7 +32,15 @@ ds_ribbon_alpha <- 0.1
 dsplot <- function(
     stats, neuropil, split, title, bg_alpha = ds_ribbon_alpha,
     star_size = 4, star_location = 1.15,
-    ylab = "Deep / Superficial Bias\n(+: Distal / -: Proximal)"
+    ylab = "Deep / Superficial Bias\n(+: Distal / -: Proximal)",
+    scale_point_size_by_synapses = FALSE,
+    synapse_size_range = c(0.8, 3.2),
+    synapse_size_limits = NULL,
+    synapse_size_breaks = waiver(),
+    jitter_point_ranges = FALSE,
+    point_jitter_width = 0.18,
+    show_significance_stars = TRUE,
+    synapse_point_stats = NULL
   ) {
   glossary <- c(
     "Notch Off_intrinsic" = "'Notch'^'Off'~'Interneurons'",
@@ -41,7 +49,7 @@ dsplot <- function(
     "Notch On_projection" = "'Notch'^'On'~'Projection Neurons'",
     "all" = "'Putative'~'OPC'~'Neurons'"
   )
-  
+
   np_lut <- c(
     "ME_R" = "'Medulla'~",
     "LOP_R" = "'Lobula Plate'~",
@@ -73,21 +81,49 @@ dsplot <- function(
   sup_col <- ifelse(grepl("^ME", neuropil), late_col, early_col)
   plot_data <- stats |>
     filter(neuropil == {{ neuropil }}, split %in% {{ split }})
+  synapse_point_data <- NULL
+  if (!is.null(synapse_point_stats)) {
+    synapse_point_data <- synapse_point_stats |>
+      filter(neuropil == {{ neuropil }}, split %in% {{ split }})
+  }
   if (is_spatial) {
     plot_data$types_of_interest <- factor(
       plot_data$types_of_interest,
       levels = spatial_groups[spatial_groups %in% unique(plot_data$types_of_interest)]
     )
   }
-  
+  if (jitter_point_ranges) {
+    set.seed(1)
+    plot_data$.x_position <- as.numeric(plot_data$types_of_interest)
+    if (!is.null(synapse_point_data)) {
+      synapse_point_data$.x_position <- as.numeric(synapse_point_data$types_of_interest) +
+        runif(nrow(synapse_point_data), -point_jitter_width, point_jitter_width)
+    } else {
+      plot_data$.x_position <- plot_data$.x_position +
+        runif(nrow(plot_data), -point_jitter_width, point_jitter_width)
+    }
+  }
+
   pad_width <- max(
-    length(unique(plot_data$types_of_interest)) + 1,
+    length(unique(c(
+      as.character(plot_data$types_of_interest),
+      as.character(synapse_point_data$types_of_interest)
+    ))) + 1,
     ifelse(is.factor(plot_data$types_of_interest), nlevels(plot_data$types_of_interest), 0) + 1
   )
   
+  if (scale_point_size_by_synapses && is.null(synapse_point_data) && !"n_samples_interest" %in% names(plot_data)) {
+    stop("Cannot scale point size: n_samples_interest column is missing")
+  }
+  if (scale_point_size_by_synapses && !is.null(synapse_point_data) && !"n_samples_interest" %in% names(synapse_point_data)) {
+    stop("Cannot scale point size: n_samples_interest column is missing")
+  }
   
   p <- plot_data %>%
-    ggplot(aes(x = types_of_interest, color = types_of_interest)) +
+    ggplot(aes(
+      x = if (jitter_point_ranges) .data$.x_position else types_of_interest,
+      color = types_of_interest
+    )) +
     annotate(
       geom = "rect",
       fill = deep_col,
@@ -106,18 +142,76 @@ dsplot <- function(
       xmax = pad_width,
       alpha = bg_alpha
     ) +
-    geom_hline(yintercept = 0) +
-    geom_pointrange(aes(
-      y = bootstrap_bias_ratio_median,
-      ymin = bootstrap_bias_ratio_lower,
-      ymax = bootstrap_bias_ratio_upper
-    ), size = 0.5) +
-    geom_text(
+    geom_hline(yintercept = 0)
+
+  if (scale_point_size_by_synapses && is.null(synapse_point_data)) {
+    p <- p +
+      geom_linerange(aes(
+        ymin = bootstrap_bias_ratio_lower,
+        ymax = bootstrap_bias_ratio_upper
+      ), linewidth = 0.5) +
+      geom_point(aes(
+        y = bootstrap_bias_ratio_median,
+        size = n_samples_interest
+      )) +
+      scale_size_continuous(
+        trans = "log10",
+        range = synapse_size_range,
+        limits = synapse_size_limits,
+        breaks = synapse_size_breaks,
+        name = "Synapses",
+        labels = scales::label_number()
+      )
+  } else {
+    p <- p +
+      geom_pointrange(aes(
+        y = bootstrap_bias_ratio_median,
+        ymin = bootstrap_bias_ratio_lower,
+        ymax = bootstrap_bias_ratio_upper
+      ), size = 0.5)
+  }
+
+  if (scale_point_size_by_synapses && !is.null(synapse_point_data)) {
+    synapse_point_data <- synapse_point_data |>
+      filter(
+        !is.na(bootstrap_bias_ratio_median),
+        !is.na(n_samples_interest),
+        n_samples_interest > 0
+      )
+    p <- p +
+      geom_point(
+        data = synapse_point_data,
+        aes(
+          x = if (jitter_point_ranges) .data$.x_position else types_of_interest,
+          y = bootstrap_bias_ratio_median,
+          color = types_of_interest,
+          size = n_samples_interest
+        ),
+        inherit.aes = FALSE,
+        shape = 1,
+        stroke = 0.6,
+        alpha = 0.9
+      ) +
+      scale_size_continuous(
+        trans = "log10",
+        range = synapse_size_range,
+        limits = synapse_size_limits,
+        breaks = synapse_size_breaks,
+        name = "Synapses",
+        labels = scales::label_number()
+      )
+  }
+
+  if (show_significance_stars) {
+    p <- p + geom_text(
       aes(label = ifelse(.data$significant_fdr, "*", "")),
       y = star_location,
       color = "black",
       size = star_size
-    ) +
+    )
+  }
+
+  p <- p +
     theme(
       panel.background = element_blank(),
       strip.background = element_rect(fill = "transparent", color = "black"),
@@ -128,13 +222,24 @@ dsplot <- function(
       axis.text.y = element_text(size = 6),
       plot.title = element_text(size = 8, face = "bold")
     ) +
-    guides(color = "none") +
+    guides(color = "none", size = guide_legend(order = 1)) +
     labs(
       y = ylab,
       title = parse(text = plot_title)
     ) +
-    scale_x_discrete(drop = FALSE) +
     scale_y_continuous(limits = c(-1, star_location + 0.1))
+
+  if (jitter_point_ranges) {
+    type_levels <- levels(plot_data$types_of_interest)
+    p <- p + scale_x_continuous(
+      breaks = seq_along(type_levels),
+      labels = type_levels,
+      limits = c(0, pad_width),
+      expand = expansion(mult = 0)
+    )
+  } else {
+    p <- p + scale_x_discrete(drop = FALSE)
+  }
   
   tws <- c("Hth", "Hth/Opa", "Opa/Erm", "Erm/Ey", "Ey/Hbn", "Hbn/Opa/Slp", "Slp/D", "D/BH-1")
   is_temporal <- any(uval %in% tws)
@@ -227,7 +332,7 @@ boot_new$types_of_interest <- factor(
 boot_new$syn_type <- factor(
   boot_new$syn_type,
   levels = c("pre", "post"),
-  labels = c("Presynase", "Postsynapse")
+  labels = c("Presynapse", "Postsynapse")
 )
 
 # Y1H - New Sm interneurons: weak/ambiguous bias
@@ -269,6 +374,157 @@ Y1_p <- wrap_plots(Y1, ncol = 3) +
   theme(plot.tag = element_text(size = 9))
 
 ggsave(filename = "int/Supp_fig_Y1.pdf", plot = Y1_p, width = 8.5, height = 11)
+
+type_depth <- read.csv("int/de_analysis/combined_type_depth.csv")
+type_depth <- type_depth |>
+  left_join(
+    opc_anno |> select(cell_type, newly_ann),
+    by = "cell_type"
+  ) |>
+  filter(
+    !is.na(temporal_label),
+    temporal_label != "",
+    temporal_label != "unknown",
+    is.na(skip_reason) | skip_reason == ""
+  ) |>
+  mutate(
+    types_of_interest = factor(
+      temporal_label,
+      levels = c("Hth", "Hth/Opa", "Opa/Erm", "Erm/Ey", "Ey/Hbn", "Hbn/Opa/Slp", "Slp/D", "D/BH-1")
+    ),
+    split = paste(Notch, ntype, sep = "_"),
+    n_samples_interest = n_syn_interest,
+    syn_type = factor(
+      syn_type,
+      levels = c("pre", "post"),
+      labels = c("Presynapse", "Postsynapse")
+    )
+  )
+
+type_depth_known <- type_depth |>
+  filter(is.na(newly_ann) | newly_ann != "Y")
+
+type_depth_new <- type_depth |>
+  filter(newly_ann == "Y")
+
+y1_alt_synapse_size_limits <- range(type_depth$n_samples_interest, na.rm = TRUE)
+y1_alt_synapse_size_breaks <- scales::breaks_log(n = 4)(y1_alt_synapse_size_limits)
+
+Y1A_alt <- dsplot(
+  boot, "ME_R", "Notch On_intrinsic",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1B_alt <- dsplot(
+  boot, "ME_R", "Notch Off_intrinsic",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1C_alt <- dsplot(
+  boot, "ME_R", "Notch On_projection",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1D_alt <- dsplot(
+  boot, "ME_R", "Notch Off_projection",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1E_alt <- dsplot(
+  boot, "LO_R", "Notch On_projection",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1F_alt <- dsplot(
+  boot, "LO_R", "Notch Off_projection",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1G_alt <- dsplot(
+  boot, "LOP_R", c("Notch Off_projection", "Notch On_projection"),
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_known
+)
+Y1H_alt <- dsplot(
+  boot_new, "ME_R", "Notch Off_intrinsic",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+Y1I_alt <- dsplot(
+  boot_new, "LO_R", "Notch On_projection",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+Y1J_alt <- dsplot(
+  boot_new, "ME_R", "Notch On_projection",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+Y1K_alt <- dsplot(
+  boot_new, "LO_R", "Notch Off_projection",
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+Y1L_alt <- dsplot(
+  boot_new, "ME_R", "Notch Off_projection",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+
+Y1_alt <- list(
+  Y1A_alt, Y1B_alt, Y1C_alt, Y1D_alt, Y1E_alt, Y1F_alt,
+  Y1G_alt, Y1H_alt, Y1I_alt, Y1J_alt, Y1K_alt, Y1L_alt
+)
+
+Y1_alt_p <- wrap_plots(Y1_alt, ncol = 3, guides = "collect") +
+  plot_annotation(tag_levels = 'a') &
+  theme(
+    plot.tag = element_text(size = 9),
+    legend.position = "bottom"
+  )
+
+ggsave(filename = "int/Supp_fig_Y1-alt.pdf", plot = Y1_alt_p, width = 8.5, height = 11)
 
 ### Y2
 putative_hl_cols <- grep("^putative_hl[0-9]+$", names(opc_anno), value = TRUE)

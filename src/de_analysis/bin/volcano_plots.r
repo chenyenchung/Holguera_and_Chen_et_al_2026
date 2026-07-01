@@ -11,12 +11,12 @@ suppressPackageStartupMessages(library(ggrepel))
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
 markers_file <- if (is.null(argvs$markers)) {
-  file.path(repo_root, "int/de_analysis/combined_de_markers.csv")
+  file.path(repo_root, "int/de_analysis/temporal_cohort/combined_temporal_cohort_de_markers.csv")
 } else {
   argvs$markers
 }
 out_dir <- if (is.null(argvs$out_dir)) {
-  file.path(repo_root, "int/de_analysis/volcano_plots")
+  file.path(repo_root, "int/de_analysis/temporal_cohort/volcano_plots")
 } else {
   argvs$out_dir
 }
@@ -49,6 +49,8 @@ markers[, neg_log10_q := -log10(p_val_adj)]
 contrast_label <- function(x) {
   labels <- c(
     all = "All",
+    all_projection = "All Projection",
+    all_intrinsic = "All Intrinsic",
     notch_on_projection = "Notch On Projection",
     notch_off_projection = "Notch Off Projection",
     notch_on_intrinsic = "Notch On Intrinsic",
@@ -65,6 +67,9 @@ safe_name <- function(x) {
 early_late_colors <- ih2025_colors()
 
 depth_to_temporal <- function(neuropil, depth_group) {
+  if (depth_group %in% c("Early", "Late")) {
+    return(depth_group)
+  }
   if (grepl("^ME", neuropil)) {
     return(ifelse(depth_group == "deep", "Early", "Late"))
   }
@@ -96,10 +101,12 @@ plot_one <- function(dt, combo) {
     setNames(early_late_colors[group_1_temporal], combo$group_1)
   )
 
-  title <- sprintf(
-    "%s %s %s: %s vs %s",
-    combo$stage, combo$neuropil, combo$syn_type, combo$group_1, combo$group_2
-  )
+  title_prefix <- if (combo$syn_type == "temporal_cohort") {
+    sprintf("%s temporal cohort", combo$stage)
+  } else {
+    sprintf("%s %s %s", combo$stage, combo$neuropil, combo$syn_type)
+  }
+  title <- sprintf("%s: %s vs %s", title_prefix, combo$group_1, combo$group_2)
   subtitle <- sprintf(
     "%s contrast; labels: top %d positive and top %d negative markers by q-value",
     contrast_label(combo$contrast), top_n, top_n

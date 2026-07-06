@@ -19,6 +19,8 @@ parse_bool <- function(x, default = FALSE) {
 # Source utility functions (soft-linked by Nextflow)
 if (file.exists("./utils.r")) {
   source("./utils.r", chdir = FALSE)
+} else {
+  source(argvs$utils, chdir = FALSE)
 }
 
 if (interactive()) {

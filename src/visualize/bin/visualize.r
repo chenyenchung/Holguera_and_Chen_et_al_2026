@@ -114,6 +114,7 @@ axis_scales <- function() {
 if (preset$color_by == "cell_type") {
   preset$color_by <- paste0(argvs$syn_type, "_type")
 }
+spatial_notch_levels <- c("Notch On", "Notch Off")
 
 ## Filter by annotation and subsample
 np_coord <- filter_type(
@@ -314,4 +315,80 @@ for (i in names(np_coord)) {
   ggsave(
     plot = legendsp, paste0(out_prefix, "_legend.pdf")
   )
+
+  if (preset$color_by == "spatial_origin" && "Notch" %in% colnames(np_coord[[i]])) {
+    for (notch_status in spatial_notch_levels) {
+      notch_label <- gsub(" ", "", notch_status)
+      np_coord_notch <- copy(np_coord[[i]][Notch == notch_status])
+      np_raw_notch <- copy(np_raw[[i]][Notch == notch_status])
+      if (nrow(np_coord_notch) == 0 || nrow(np_raw_notch) == 0) next
+
+      dotp_notch <- np_coord_notch |>
+        ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+        rasterize(geom_point(aes(color = .data[[preset$color_by]]))) +
+        labs(color = preset$color_guide) +
+        theme_ih2025() +
+        axis_scales() +
+        color_func()
+
+      legendsp_notch <- get_plot_component(dotp_notch, "guide-box", return_all = TRUE)
+      dotp_notch <- dotp_notch + theme(legend.position = "none")
+      if (!inherits(legendsp_notch, "grob")) {
+        to_keep <- sapply(legendsp_notch, function(x) !"zeroGrob" %in% class(x))
+        if (sum(to_keep) != 1) {
+          stop("There should be only 1 legend but ", sum(to_keep), " was found.")
+        }
+        legendsp_notch <- legendsp_notch[to_keep][[1]]
+      }
+
+      np_den_notch <- np_raw_notch[, .(
+        group = get(preset$color_by),
+        type = get(paste(argvs$syn_type, "type", sep = "_")),
+        depth = get(paste(argvs$syn_type, "rz", sep = "_"))
+      )]
+      if (plot_meta$zinvert) {
+        np_den_notch$depth <- np_den_notch$depth * -1
+      }
+      np_den_notch <- split(np_den_notch, np_den_notch$group, drop = TRUE)
+      np_den_notch <- Filter(
+        function(x) length(unique(x$depth)) >= 2,
+        np_den_notch
+      )
+      if (length(np_den_notch) == 0) next
+      interpolated_notch <- lapply(names(np_den_notch), function(type) {
+        d <- density(np_den_notch[[type]]$depth)
+        y_interp <- approx(d$x, d$y, xout = den_grid, rule = 2)$y
+        data.frame(x = den_grid, y = y_interp, type = type)
+      })
+      inter_notch <- do.call(rbind, interpolated_notch)
+
+      denp_notch <- inter_notch |>
+        ggplot(aes(x = x, y = y, color = type)) +
+        geom_line() +
+        theme_ih2025() +
+        color_func() +
+        guides(color = "none")
+
+      if (plot_meta$zid == "y") denp_notch <- denp_notch + coord_flip()
+
+      if (plot_meta$outlayout == "landscape") {
+        outp_notch <- (dotp_notch | denp_notch) +
+          plot_layout(widths = c(plot_meta$outr1, plot_meta$outr2))
+      } else {
+        outp_notch <- (dotp_notch / denp_notch) +
+          plot_layout(heights = c(plot_meta$outr1, plot_meta$outr2))
+      }
+
+      ggsave(
+        plot = outp_notch,
+        filename = paste0(out_prefix, "_", notch_label, ".pdf"),
+        width = plot_meta$outd1,
+        height = plot_meta$outd2
+      )
+      ggsave(
+        plot = legendsp_notch,
+        paste0(out_prefix, "_", notch_label, "_legend.pdf")
+      )
+    }
+  }
 }

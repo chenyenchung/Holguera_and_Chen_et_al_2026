@@ -2,6 +2,6 @@ neuropil,x_axis,y_axis,axis_1_func,axis_2_func,min1,max1,min2,max2,zid,zinvert,m
 ME_L,rx,rz,scale_x_continuous,scale_y_continuous,-115396.3,112703.0,-57016.61,58153.14,y,FALSE,-57016.61,58153.14,landscape,5,1,10,6
 ME_R,rx,rz,scale_x_continuous,scale_y_reverse,-115314.7,123465.7,-55445.15,55255.53,y,TRUE,-55445.15,55255.53,landscape,5,1,10,6
 LOP_L,rz,rx,scale_y_continuous,scale_x_reverse,-98775.27,71949.06,-24020.09,18472.12,x,FALSE,-98775.27,71949.06,portrait,4,1,5,10
-LOP_R,rz,rx,scale_y_continuous,scale_x_continuous,-92223.89,88763.23,-27416.30,18973.71,x,TRUE,-92223.89,88763,portrait,4,1,5,10
+LOP_R,rz,rx,scale_y_continuous,scale_x_continuous,-92223.89,88763.23,-24431.20,31146.44,x,TRUE,-92223.89,88763,portrait,4,1,5,10
 LO_L,rz,rx,scale_y_continuous,scale_x_continuous,-85555.70,79581.77,-34710.62,38771.39,x,FALSE,-85555.70,79581.77,portrait,4,1,5,10
 LO_R,rz,rx,scale_y_continuous,scale_x_continuous,-89727.67,86285.80,-37430.15,34786.18,x,FALSE,-89727.67,86285.80,portrait,4,1,5,10

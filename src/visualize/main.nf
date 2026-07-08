@@ -180,6 +180,9 @@ workflow {
         .splitCsv(header:true)
         .map { row -> row.preset }
     )
+    .filter { np, syn, stype, preset ->
+      !(preset in ['type_T1', 'spatial_Hth']) || np == 'ME_R'
+    }
     .combine(channel.fromList(DEN_ALGO))
   utils_file = file('src/utils.r')
   out_ch = Visualize(
@@ -269,7 +272,8 @@ output {
         'new': 'All_confidently_annotated_highlighting_new',
         'all': 'All_confidently_annotated',
         'spatial': 'Spatial_origin',
-        'putative': 'Putative_OPC_types'
+        'putative': 'Putative_OPC_types',
+        'T1': 'T1'
       ]
       def color_dict = [
         'temporal': 'Color_by_temporal_origin',
@@ -282,7 +286,9 @@ output {
       def ctype = input[1].split('_')[0]
       def subset = input[1].split('_')[1]
       def clabel = color_dict[ctype]
-      def slabel = ctype == 'spatial' ? 'Spatial_origin' : subset_dict[subset]
+      def slabel = subset == 'Hth' ? 'Hth_window' : (
+        ctype == 'spatial' ? 'Spatial_origin' : subset_dict[subset]
+      )
       return "${clabel}/${slabel}_${side}"
     }
   }

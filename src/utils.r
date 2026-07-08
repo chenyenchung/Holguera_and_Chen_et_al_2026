@@ -90,8 +90,8 @@ scale_fill_subsystem <- function() {
   return(f)
 }
 
-#' Color scale for cell types
-scale_color_type <- function() {
+#' Cell type colors
+type_colors <- function() {
   hsort <- function(x) {
     sort_key <- c(
       "L", "A", "B", "C", "D", "M", "E", "F", "G", "H", "I", "J", "K",
@@ -119,9 +119,28 @@ scale_color_type <- function() {
   }
   colors <- hue_pal()(length(types))
   names(colors) <- types
+  colors
+}
 
+#' Color scale for cell types
+scale_color_type <- function() {
   return(
-    scale_color_manual(values = colors)
+    scale_color_manual(values = type_colors())
+  )
+}
+
+#' Color scale for medulla reference groups plus T1
+scale_color_medulla_reference_t1 <- function() {
+  temporal_colors <- ih2025_colors()
+  cell_type_colors <- type_colors()
+  scale_color_manual(
+    values = c(
+      "Other" = "grey92",
+      "Dm reference" = temporal_colors[["Late"]],
+      "Pm reference" = temporal_colors[["Early"]],
+      "T1" = cell_type_colors[["T1"]]
+    ),
+    breaks = c("T1", "Dm reference", "Pm reference", "Other")
   )
 }
 
@@ -143,6 +162,37 @@ scale_color_spatial_origin <- function() {
     breaks = names(spatial_origin_colors)
   )
   return(f)
+}
+
+spatial_origin_color_values <- function() {
+  c(
+    Vsx = "#1B9E77",
+    Optix = "#7570B3",
+    Dpp = "#D95F02",
+    "Vsx/Optix" = "#4B8A95",
+    "Vsx/Dpp" = "#7A8B3D",
+    "Optix/Dpp" = "#A0685B",
+    "Vsx/Optix/Dpp" = "#5F5F5F",
+    unknown = "grey80"
+  )
+}
+
+scale_color_medulla_hth_spatial <- function() {
+  temporal_colors <- ih2025_colors()
+  scale_color_manual(
+    values = c(
+      "Other" = "grey92",
+      "Dm reference" = temporal_colors[["Late"]],
+      "Pm reference" = temporal_colors[["Early"]],
+      spatial_origin_color_values()
+    ),
+    breaks = c(
+      names(spatial_origin_color_values()),
+      "Dm reference",
+      "Pm reference",
+      "Other"
+    )
+  )
 }
 
 #' Color scale for developmental origins (Version A - origin-level)
@@ -365,6 +415,165 @@ filter_broad <- function(coord, ann, syn_type = "pre") {
   )
   setorder(coord, .row_id)
   coord[, .row_id := NULL]
+  return(coord)
+}
+
+#' Filter coordinates to one exact cell type
+filter_cell_type <- function(coord, ann, syn_type = "pre", cell_type) {
+  type_col <- paste0(syn_type, "_type")
+  coord <- coord[get(type_col) == cell_type]
+  coord[, .row_id := .I]
+  coord <- merge(
+    coord,
+    ann[, .(cell_type)],
+    by.x = type_col,
+    by.y = "cell_type"
+  )
+  setorder(coord, .row_id)
+  coord[, .row_id := NULL]
+  return(coord)
+}
+
+annotate_medulla_context <- function(coord, syn_type, target_flag,
+                                     target_group) {
+  type_col <- paste0(syn_type, "_type")
+  is_dm_ref <- grepl("^Dm", coord[[type_col]])
+  is_pm_ref <- grepl("^Pm", coord[[type_col]])
+  coord[, plot_alpha := fifelse(target_flag, 1, 0.05)]
+  coord[, plot_order := fifelse(
+    target_flag,
+    2L,
+    fifelse(is_dm_ref | is_pm_ref, 1L, 0L)
+  )]
+  coord[, reference_group := fifelse(
+    target_flag,
+    target_group,
+    fifelse(
+      is_dm_ref,
+      "Dm reference",
+      fifelse(is_pm_ref, "Pm reference", "Other")
+    )
+  )]
+  coord
+}
+
+#' Annotate coordinates for T1 with medulla reference context
+filter_t1 <- function(coord, ann, syn_type = "pre") {
+  type_col <- paste0(syn_type, "_type")
+  coord <- annotate_medulla_context(
+    coord,
+    syn_type = syn_type,
+    target_flag = coord[[type_col]] == "T1",
+    target_group = "T1"
+  )
+  coord[, reference_group := factor(
+    reference_group,
+    levels = c("Other", "Dm reference", "Pm reference", "T1")
+  )]
+  coord[, .row_id := .I]
+  coord <- merge(
+    coord,
+    ann[, .(cell_type)],
+    by.x = type_col,
+    by.y = "cell_type",
+    all.x = TRUE
+  )
+  setorder(coord, .row_id)
+  coord[, .row_id := NULL]
+  return(coord)
+}
+
+add_spatial_origin <- function(ann) {
+  spatial_families <- list(
+    Vsx = c("vVsx", "dVsx"),
+    Optix = c("vOptix", "dOptix"),
+    Dpp = c("vDpp", "dDpp")
+  )
+  spatial_cols <- unlist(spatial_families, use.names = FALSE)
+  spatial_levels <- c(
+    "Vsx", "Optix", "Dpp",
+    "Vsx/Optix", "Vsx/Dpp", "Optix/Dpp",
+    "Vsx/Optix/Dpp", "unknown"
+  )
+  missing_cols <- setdiff(spatial_cols, colnames(ann))
+  if (length(missing_cols) > 0) {
+    stop(sprintf(
+      "Missing spatial origin columns in annotation data: %s",
+      paste(missing_cols, collapse = ", ")
+    ))
+  }
+
+  is_spatial_origin <- function(x) {
+    x_chr <- toupper(trimws(as.character(x)))
+    !is.na(x_chr) & x_chr %in% c("1", "TRUE", "T", "Y", "YES")
+  }
+
+  ann_spatial <- copy(ann)
+  for (col in spatial_cols) {
+    ann_spatial[, (col) := is_spatial_origin(get(col))]
+  }
+
+  family_order <- names(spatial_families)
+  family_flag_cols <- paste0(".spatial_", family_order)
+  names(family_flag_cols) <- family_order
+  for (family in family_order) {
+    ann_spatial[
+      ,
+      (family_flag_cols[[family]]) := rowSums(.SD) > 0,
+      .SDcols = spatial_families[[family]]
+    ]
+  }
+
+  ann_spatial[, spatial_origin := apply(.SD, 1, function(row) {
+    origins <- family_order[as.logical(row)]
+    if (length(origins) == 0) {
+      return("unknown")
+    }
+    paste(origins, collapse = "/")
+  }), .SDcols = family_flag_cols]
+  ann_spatial[, spatial_origin := factor(
+    spatial_origin,
+    levels = spatial_levels
+  )]
+  ann_spatial
+}
+
+#' Annotate exact-Hth cells with medulla reference context
+filter_hth_spatial <- function(coord, ann, syn_type = "pre") {
+  type_col <- paste0(syn_type, "_type")
+  ann_spatial <- add_spatial_origin(ann)
+  ann_spatial[, is_hth := !is.na(temporal_label) &
+    temporal_label == "Hth" &
+    Confident_annotation == "Y"]
+  coord[, .row_id := .I]
+  coord <- merge(
+    coord,
+    ann_spatial[, .(cell_type, spatial_origin, is_hth)],
+    by.x = type_col,
+    by.y = "cell_type",
+    all.x = TRUE
+  )
+  setorder(coord, .row_id)
+  coord[, .row_id := NULL]
+  coord[is.na(is_hth), is_hth := FALSE]
+  coord <- annotate_medulla_context(
+    coord,
+    syn_type = syn_type,
+    target_flag = coord$is_hth,
+    target_group = as.character(coord$spatial_origin)
+  )
+  coord[!is_hth & reference_group %in% c("Dm reference", "Pm reference"),
+        spatial_origin := NA]
+  coord[, reference_group := factor(
+    reference_group,
+    levels = c(
+      "Other",
+      "Dm reference",
+      "Pm reference",
+      names(spatial_origin_color_values())
+    )
+  )]
+  coord[, is_hth := NULL]
   return(coord)
 }
 

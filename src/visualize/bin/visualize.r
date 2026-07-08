@@ -196,6 +196,11 @@ for (i in names(np_coord)) {
     setorder(np_coord[[i]], -.plot_order)
     np_coord[[i]][, .plot_order := NULL]
   }
+  if ("plot_order" %in% colnames(np_coord[[i]])) {
+    setorder(np_coord[[i]], plot_order)
+  } else if ("target_highlight" %in% colnames(np_coord[[i]])) {
+    setorder(np_coord[[i]], target_highlight)
+  }
   
   out_prefix <- paste(
     argvs$np, argvs$syn_type, argvs$use_preset, argvs$density, i,
@@ -203,7 +208,15 @@ for (i in names(np_coord)) {
   )
 
   ## Generate the dot plot
-  if (preset$do_highlight) {
+  if ("plot_alpha" %in% colnames(np_coord[[i]])) {
+    dotp <- np_coord[[i]] |>
+      ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
+      rasterize(geom_point(
+        aes(color = .data[[preset$color_by]], alpha = plot_alpha)
+      )) +
+      guides(alpha = "none") +
+      scale_alpha_identity()
+  } else if (preset$do_highlight) {
     dotp <- np_coord[[i]] |>
       ggplot(aes(x = .data[[x_axis]], y = .data[[y_axis]])) +
       rasterize(geom_point(

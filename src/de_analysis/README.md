@@ -12,6 +12,8 @@ The workflow has three stages:
    clusters for each stage.
 2. Combined marker, membership, summary, and CAM candidate tables.
 3. Early-versus-Late volcano plots.
+4. A direct P15, P30, and P50 cluster-pair DE table for Ozel cluster 59 versus
+   cluster 82.
 
 Temporal-cohort DE does not depend on neuropil or synapse depth. It uses
 confidently annotated types with temporal information and compares
@@ -32,6 +34,9 @@ nextflow run main.nf
 | `camf` | `data/P15_CAM.csv` | CAM gene matrix used to flag candidate surface/guidance molecules |
 | `seurat_obj_dir` | `data/ozel_2021_objs` | Directory containing stage Seurat objects |
 | `stages` | `P15,P30,P50` | Stage names matched to `<stage>.rds` files |
+| `cluster_pair_stages` | `P15,P30,P50` | Stage names used for direct cluster-pair DE |
+| `cluster_pair` | `59,82` | Cluster IDs for direct cluster-pair DE; positive log2FC is enriched in the first cluster |
+| `cluster_col` | `FinalIdents` | Seurat metadata column used for direct cluster-pair DE |
 | `min_cells` | `3` | Minimum Seurat cells per DE group |
 
 ## Temporal-Cohort Contrasts
@@ -67,3 +72,11 @@ Published under `int/de_analysis/temporal_cohort/`:
 Seurat DE uses `UpdateSeuratObject()` in memory, `FinalIdents` as the Ozel
 cluster field, and `FindMarkers()` on the `RNA` assay `data` slot with Wilcoxon,
 `min.pct = 0`, and `logfc.threshold = 0`.
+
+## Cluster 59 versus 82
+
+The workflow also runs a direct cluster-pair contrast for clusters 59 and 82 in
+P15, P30, and P50. Positive `avg_log2FC` values indicate enrichment in cluster
+59. The combined table is published under
+`int/de_analysis/cluster_pair_59_vs_82/cluster_59_vs_82_de_table.csv` and sorted
+globally by `q_value` ascending, then `abs_avg_log2FC` descending.

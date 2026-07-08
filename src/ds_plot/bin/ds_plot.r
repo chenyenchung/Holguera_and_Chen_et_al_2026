@@ -478,7 +478,17 @@ Y1L <- dsplot(
   "Notch Off_projection"
 )
 
-Y1 <- list(Y1A, Y1B, Y1C, Y1D, Y1E, Y1F, Y1G, Y1H, Y1I, Y1J, Y1K, Y1L)
+Y1G_new <- dsplot(
+  boot_new,
+  "LOP_R",
+  c("Notch Off_projection", "Notch On_projection"),
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
+
+Y1 <- list(
+  Y1A, Y1B, Y1C, Y1D, Y1E, Y1F, Y1G, Y1G_new,
+  Y1H, Y1I, Y1J, Y1K, Y1L
+)
 
 Y1_p <- wrap_plots(Y1, ncol = 3) +
   plot_annotation(tag_levels = 'a') &
@@ -488,7 +498,7 @@ ggsave(
   filename = file.path(out_dir, "Supp_fig_Y1.pdf"),
   plot = Y1_p,
   width = 8.5,
-  height = 11
+  height = 13.75
 )
 
 type_depth <- read.csv(argvs$type_depth)
@@ -663,6 +673,18 @@ Y1L_alt <- dsplot(
   synapse_point_stats = type_depth_new
 )
 
+Y1G_new_alt <- dsplot(
+  boot_new,
+  "LOP_R",
+  c("Notch Off_projection", "Notch On_projection"),
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+  scale_point_size_by_synapses = TRUE,
+  synapse_size_limits = y1_alt_synapse_size_limits,
+  synapse_size_breaks = y1_alt_synapse_size_breaks,
+  jitter_point_ranges = TRUE,
+  synapse_point_stats = type_depth_new
+)
+
 Y1_alt_LO <- list(Y1E_alt, Y1F_alt, Y1I_alt, Y1K_alt)
 Y1_alt_ME <- list(
   Y1A_alt,
@@ -670,6 +692,7 @@ Y1_alt_ME <- list(
   Y1C_alt,
   Y1D_alt,
   Y1G_alt,
+  Y1G_new_alt,
   Y1H_alt,
   Y1J_alt,
   Y1L_alt
@@ -891,8 +914,14 @@ Y3K <- dsplot(
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
+Y3L <- dsplot(
+  boot_fun_new,
+  "LOP_R",
+  c("Notch On_projection", "Notch Off_projection"),
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
 
-Y3 <- list(Y3A, Y3B, Y3C, Y3D, Y3E, Y3F, Y3G, Y3H, Y3I, Y3J, Y3K)
+Y3 <- list(Y3A, Y3B, Y3C, Y3D, Y3E, Y3F, Y3G, Y3H, Y3I, Y3J, Y3K, Y3L)
 
 Y3_p <- wrap_plots(Y3, ncol = 3) +
   plot_annotation(tag_levels = 'a') &

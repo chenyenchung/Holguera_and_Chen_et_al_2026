@@ -254,7 +254,8 @@ preset_all <- validate_config_file(
   argvs$preset,
   c(
     "preset", "palette", "color_guide", "filter_func", "color_by",
-    "notch_split", "do_highlight", "hl_type", "hl_col", "hl_val"
+    "notch_split", "do_highlight", "hl_type", "hl_col", "hl_val",
+    "known_only"
   )
 )
 preset <- preset_all[preset == argvs$use_preset]
@@ -273,6 +274,11 @@ np_coord <- filter_type(
   np_coord, syn_type = argvs$syn_type, sparse_limit = argvs$sparse_limit
 )
 np_coord <- filter_func(np_coord, opc_anno, syn_type = argvs$syn_type)
+
+# Keep known-only statistics consistent with the corresponding visualizations.
+if (preset$known_only) {
+  np_coord <- np_coord[newly_ann == "N"]
+}
 
 # Handle highlighting if specified
 if (preset$do_highlight && preset$hl_type == "label") {

@@ -12,6 +12,7 @@ The main pipeline modules are documented in their own READMEs:
 - `src/visualize/`
 - `src/selector_test/`
 - `src/cam_test/`
+- `src/ds_plot/`
 
 ## Top-level manual scripts
 
@@ -53,12 +54,6 @@ Rscript src/manual_visualize.r \
 - Key inputs: connections, cell type labels, rotated matrices, viz metadata, LC/LPLC origin map
 - Configuration: uses hardcoded paths/parameters in the script (edit `argvs` block to customize)
 - Outputs: PDFs and legend PDFs under `int/lc_lplc_dev_origin/`
-
-### `src/manual_ds_stats.r`
-
-- Purpose: assemble supplementary deep/superficial bias figure panels
-- Key input: `int/stats/deep_superficial/combined_broad_depth_results.xlsx`
-- Outputs: `int/Supp_fig_Y1.pdf`, `int/Supp_fig_Y2.pdf`, `int/Supp_fig_Y3.pdf`, `int/Supp_fig_Y4.pdf`, `int/Supp_fig_Y6.pdf`
 
 ## Top-level helper scripts
 

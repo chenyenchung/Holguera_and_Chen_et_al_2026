@@ -342,6 +342,8 @@ dsplot <- function(
     if (split != "all") {
       if (is_temporal) {
         p <- p + scale_color_nk2023()
+      } else if (is_spatial) {
+        p <- p + scale_color_spatial_origin()
       } else {
         p <- p + scale_color_subsystem()
       }
@@ -486,8 +488,8 @@ Y1G_new <- dsplot(
 )
 
 Y1 <- list(
-  Y1A, Y1B, Y1C, Y1D, Y1E, Y1F, Y1G, Y1G_new,
-  Y1H, Y1I, Y1J, Y1K, Y1L
+  Y1A, Y1B, Y1C, Y1D, Y1E, Y1F, Y1G,
+  Y1H, Y1I, Y1J, Y1K, Y1L, Y1G_new
 )
 
 Y1_p <- wrap_plots(Y1, ncol = 3) +
@@ -685,44 +687,34 @@ Y1G_new_alt <- dsplot(
   synapse_point_stats = type_depth_new
 )
 
-Y1_alt_LO <- list(Y1E_alt, Y1F_alt, Y1I_alt, Y1K_alt)
-Y1_alt_ME <- list(
+Y1_alt <- list(
   Y1A_alt,
   Y1B_alt,
   Y1C_alt,
   Y1D_alt,
+  Y1E_alt,
+  Y1F_alt,
   Y1G_alt,
-  Y1G_new_alt,
   Y1H_alt,
+  Y1I_alt,
   Y1J_alt,
-  Y1L_alt
+  Y1K_alt,
+  Y1L_alt,
+  Y1G_new_alt
 )
 
-Y1_alt_LO_p <- wrap_plots(Y1_alt_LO, ncol = 2, guides = "collect") +
+Y1_alt_p <- wrap_plots(Y1_alt, ncol = 3, guides = "collect") +
   plot_annotation(tag_levels = 'a') &
   theme(
     plot.tag = element_text(size = 9),
     legend.position = "bottom"
   )
 
-Y1_alt_ME_p <- wrap_plots(Y1_alt_ME, ncol = 3, guides = "collect") +
-  plot_annotation(tag_levels = 'a') &
-  theme(
-    plot.tag = element_text(size = 9),
-    legend.position = "bottom"
-  )
-
-ggsave(
-  filename = file.path(out_dir, "Fig_Y1-alt.pdf"),
-  plot = Y1_alt_LO_p,
-  width = 8.5,
-  height = 7
-)
 ggsave(
   filename = file.path(out_dir, "Supp_fig_Y1-alt.pdf"),
-  plot = Y1_alt_ME_p,
+  plot = Y1_alt_p,
   width = 8.5,
-  height = 8
+  height = 13.75
 )
 
 ### Y2
@@ -1048,3 +1040,80 @@ ggsave(
   width = 8.5,
   height = 4
 )
+
+### Y6 split by Notch status and neuron class
+spatial_notch_sheet_idx <- which(
+  getSheetNames(boot_sheets_paths) == "spatial_notch"
+)
+if (length(spatial_notch_sheet_idx) != 1) {
+  stop("Cannot find required worksheet: spatial_notch")
+}
+
+boot_spatial_notch <- read.xlsx(
+  boot_sheets_paths,
+  sheet = spatial_notch_sheet_idx
+)
+
+boot_spatial_notch$syn_type <- factor(
+  boot_spatial_notch$syn_type,
+  levels = c("pre", "post"),
+  labels = c("Presynapse", "Postsynapse")
+)
+
+spatial_notch_splits <- c(
+  "Notch On_intrinsic",
+  "Notch Off_intrinsic",
+  "Notch On_projection",
+  "Notch Off_projection"
+)
+spatial_notch_neuropils <- c("ME_R", "LO_R", "LOP_R")
+
+Y6_split <- Filter(
+  Negate(is.null),
+  unlist(
+    lapply(spatial_notch_splits, function(split_name) {
+      lapply(spatial_notch_neuropils, function(neuropil_name) {
+        has_panel_data <- any(
+          boot_spatial_notch$split == split_name &
+            boot_spatial_notch$neuropil == neuropil_name,
+          na.rm = TRUE
+        )
+        if (!has_panel_data) {
+          message(
+            "Skipping empty spatial Notch panel: ",
+            split_name,
+            " / ",
+            neuropil_name
+          )
+          return(NULL)
+        }
+        dsplot(
+          boot_spatial_notch,
+          neuropil_name,
+          split_name,
+          ylab = ifelse(
+            grepl("^LO", neuropil_name),
+            "Deep Superficial Bias\n(+: Superficial / -: Deep)",
+            "Deep / Superficial Bias\n(+: Distal / -: Proximal)"
+          )
+        )
+      })
+    }),
+    recursive = FALSE
+  )
+)
+
+if (length(Y6_split) > 0) {
+  Y6_split_p <- wrap_plots(Y6_split, ncol = 3) +
+    plot_annotation(tag_levels = 'a') &
+    theme(plot.tag = element_text(size = 9))
+
+  ggsave(
+    filename = file.path(out_dir, "Supp_fig_Y6_split.pdf"),
+    plot = Y6_split_p,
+    width = 8.5,
+    height = 11
+  )
+} else {
+  message("Skipping Supp_fig_Y6_split.pdf: no spatial Notch panels have data")
+}

@@ -317,7 +317,8 @@ workflow {
     'type_putative_8',
     'type_putative_9',
     'subsystem_putative',
-    'spatial_all'
+    'spatial_all',
+    'spatial_notch'
   ]
 
   // Create input channel

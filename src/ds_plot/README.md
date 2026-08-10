@@ -56,12 +56,12 @@ nextflow run src/ds_plot/main.nf --n_bootstrap 10
 Published under `int/`:
 
 - `Supp_fig_Y1.pdf`
-- `Fig_Y1-alt.pdf`
 - `Supp_fig_Y1-alt.pdf`
 - `Supp_fig_Y2.pdf`
 - `Supp_fig_Y3.pdf`
 - `Supp_fig_Y4.pdf`
 - `Supp_fig_Y6.pdf`
+- `Supp_fig_Y6_split.pdf` (spatial origin split by Notch status and neuron class)
 
 Published under `int/ds_plot/type_depth/`:
 

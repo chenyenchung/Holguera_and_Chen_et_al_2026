@@ -22,5 +22,6 @@ subsystem_all,scale_color_subsystem,Functional Subsystem,filter_subsystem,func,T
 subsystem_putative_hl1,scale_color_subsystem,Functional Subsystem,filter_putative,func,FALSE,TRUE,label,putative_hl1,Y,FALSE
 subsystem_putative_hl2,scale_color_subsystem,Functional Subsystem,filter_putative,func,FALSE,TRUE,label,putative_hl2,Y,FALSE
 spatial_all,scale_color_spatial_origin,Spatial Origin,filter_spatial_origin,spatial_origin,FALSE,FALSE,none,none,none,FALSE
+spatial_notch,scale_color_spatial_origin,Spatial Origin,filter_spatial_origin,spatial_origin,TRUE,FALSE,none,none,none,FALSE
 type_T1,scale_color_medulla_reference_t1,Medulla Reference,filter_t1,reference_group,FALSE,FALSE,none,none,none,FALSE
 spatial_Hth,scale_color_medulla_hth_spatial,Spatial Origin,filter_hth_spatial,reference_group,FALSE,FALSE,none,none,none,FALSE

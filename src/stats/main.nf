@@ -23,6 +23,7 @@ params.sparse_limit = 100
 params.broad_depth_coefficient = 0.5
 params.broad_depth_n_bootstrap = 1000
 params.broad_depth_conf_int = 95
+params.broad_depth_seed = 1
 
 process DepthStatsAnalysis {
   cpus '1'
@@ -176,6 +177,7 @@ process BroadDepthAnalysis {
   val coefficient
   val n_bootstrap
   val conf_int
+  val bootstrap_seed
   val slimit
 
   output:
@@ -198,7 +200,8 @@ process BroadDepthAnalysis {
     --sparse_limit ${slimit} \
     --coefficient ${coefficient} \
     --n_bootstrap ${n_bootstrap} \
-    --conf_int ${conf_int}
+    --conf_int ${conf_int} \
+    --bootstrap_seed ${bootstrap_seed}
   """
 }
 
@@ -407,6 +410,7 @@ workflow {
     params.broad_depth_coefficient,
     params.broad_depth_n_bootstrap,
     params.broad_depth_conf_int,
+    params.broad_depth_seed,
     SPARSE_LIMIT
   )
 

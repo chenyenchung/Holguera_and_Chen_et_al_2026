@@ -73,7 +73,7 @@ inline int bootstrap_neurons_inplace(
 //' @param coefficient Threshold coefficient (default 0.5)
 //' @param n_bootstrap Number of bootstrap iterations (default 1000)
 //' @param conf_int Confidence interval percentage (default 95)
-//' @param seed Random seed for reproducibility (optional)
+//' @param seed Random seed for reproducibility (default 1)
 //' @return List with bootstrap results
 // [[Rcpp::export]]
 List perform_broad_depth_bootstrap(NumericVector ref_sup_depths,
@@ -133,14 +133,17 @@ List perform_broad_depth_bootstrap(NumericVector ref_sup_depths,
   // Calculate observed test statistic
   double observed_test_stat = std::abs(observed_distance_diff) - observed_delta_thres;
   
-  // Set up random number generator
+  // Set up a deterministic random number generator by default
   std::mt19937 gen;
+  int effective_seed = 1;
   if (seed.isNotNull()) {
-    gen.seed(as<int>(seed));
-  } else {
-    std::random_device rd;
-    gen.seed(rd());
+    effective_seed = as<int>(seed);
+    if (effective_seed == NA_INTEGER) {
+      stop("Random seed must not be NA");
+    }
   }
+  gen.seed(static_cast<std::mt19937::result_type>(effective_seed));
+  Rcout << "Broad-depth bootstrap seed: " << effective_seed << "\n";
 
   // Set up distributions for bootstrap sampling of ALL groups
   std::uniform_int_distribution<int> dist_sup(0, n_sup - 1);
@@ -262,7 +265,7 @@ List perform_broad_depth_bootstrap(NumericVector ref_sup_depths,
 //' @param coefficient Threshold coefficient (default 0.5)
 //' @param n_bootstrap Number of bootstrap iterations (default 1000)
 //' @param conf_int Confidence interval percentage (default 95)
-//' @param seed Random seed for reproducibility (optional)
+//' @param seed Random seed for reproducibility (default 1)
 //' @return List with bootstrap results including bias_ratio statistics
 // [[Rcpp::export]]
 List perform_broad_depth_bootstrap_neuron_level(
@@ -371,14 +374,17 @@ List perform_broad_depth_bootstrap_neuron_level(
   NumericVector bootstrap_test_stats(n_bootstrap);
   NumericVector bootstrap_bias_ratio(n_bootstrap);
 
-  // Set up random number generator
+  // Set up a deterministic random number generator by default
   std::mt19937 gen;
+  int effective_seed = 1;
   if (seed.isNotNull()) {
-    gen.seed(as<int>(seed));
-  } else {
-    std::random_device rd;
-    gen.seed(rd());
+    effective_seed = as<int>(seed);
+    if (effective_seed == NA_INTEGER) {
+      stop("Random seed must not be NA");
+    }
   }
+  gen.seed(static_cast<std::mt19937::result_type>(effective_seed));
+  Rcout << "Broad-depth bootstrap seed: " << effective_seed << "\n";
 
   // Set up distributions for neuron-level sampling
   std::uniform_int_distribution<int> dist_neurons_sup(0, n_neurons_sup - 1);

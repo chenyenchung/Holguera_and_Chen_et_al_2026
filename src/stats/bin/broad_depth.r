@@ -8,7 +8,7 @@ suppressPackageStartupMessages(library(Rcpp))
 perform_broad_depth_analysis <- function(data, ref_sup_mapping, ref_deep_mapping,
                                        types_of_interest, coefficient = 0.5,
                                        n_bootstrap = 1000, conf_int = 95,
-                                       seed = NULL, syn_type = "pre",
+                                       seed = 1L, syn_type = "pre",
                                        ref_superficial, ref_deep,
                                        data_superficial, data_deep) {
 
@@ -103,6 +103,20 @@ perform_broad_depth_analysis <- function(data, ref_sup_mapping, ref_deep_mapping
   return(result)
 }
 
+# Derive a reproducible seed for each comparison so results do not depend on
+# comparison order while still allowing the full run to be changed by one seed.
+stable_seed <- function(base_seed, ...) {
+  modulus <- 2147483647
+  value <- as.numeric(base_seed) %% modulus
+  key <- paste(..., sep = "|")
+
+  for (byte in as.integer(charToRaw(key))) {
+    value <- (value * 131 + byte) %% modulus
+  }
+
+  as.integer(max(1, value))
+}
+
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
 if (file.exists("./utils.r")) {
@@ -124,6 +138,7 @@ if (interactive()) {
   argvs$coefficient <- 0.5
   argvs$n_bootstrap <- 1000L
   argvs$conf_int <- 95.0
+  argvs$bootstrap_seed <- 1L
   argvs$cppsrc <- "src/stats/bin/broad_depth.cpp"
   syn_path <- file.path("int/idv_mat/", paste0(argvs$np, "_rotated.csv.gz"))
 } else {
@@ -131,6 +146,7 @@ if (interactive()) {
   argvs$coefficient <- if (is.null(argvs$coefficient)) 0.5 else as.numeric(argvs$coefficient)
   argvs$n_bootstrap <- if (is.null(argvs$n_bootstrap)) 1000L else as.integer(argvs$n_bootstrap)
   argvs$conf_int <- if (is.null(argvs$conf_int)) 95.0 else as.numeric(argvs$conf_int)
+  argvs$bootstrap_seed <- if (is.null(argvs$bootstrap_seed)) 1L else as.integer(argvs$bootstrap_seed)
   syn_path <- argvs$synf
   if (is.null(argvs$preset)) argvs$preset <- "./viz_preset.csv"
   if (is.null(argvs$use_preset)) stop("use_preset parameter is required")
@@ -150,6 +166,11 @@ if (interactive()) {
     argvs$cppsrc <- found
   }
 }
+
+if (length(argvs$bootstrap_seed) != 1 || is.na(argvs$bootstrap_seed)) {
+  stop("bootstrap_seed must be a single integer")
+}
+cat("Broad-depth bootstrap base seed:", argvs$bootstrap_seed, "\n")
 
 # Verify C++ source file exists before sourcing
 if (!file.exists(argvs$cppsrc)) {
@@ -403,6 +424,14 @@ for (i in names(np_coord_list)) {
   # Perform bootstrap analysis for each group
   if (length(ref_superficial) > 0 && length(ref_deep) > 0 && length(groups_to_test) > 0) {
     split_results <- lapply(groups_to_test, function(type) {
+      analysis_seed <- stable_seed(
+        argvs$bootstrap_seed,
+        argvs$np,
+        argvs$syn_type,
+        argvs$use_preset,
+        i,
+        type
+      )
       out <- perform_broad_depth_analysis(
         test_data,
         ref_sup_mapping = ref_sup_mapping,
@@ -411,6 +440,7 @@ for (i in names(np_coord_list)) {
         coefficient = argvs$coefficient,
         n_bootstrap = argvs$n_bootstrap,
         conf_int = argvs$conf_int,
+        seed = analysis_seed,
         syn_type = argvs$syn_type,
         ref_superficial = ref_superficial,
         ref_deep = ref_deep,

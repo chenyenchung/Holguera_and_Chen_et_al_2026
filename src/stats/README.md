@@ -89,6 +89,7 @@ ks_correction_method: "fdr" # Multiple testing correction method (fdr/bonferroni
 broad_depth_coefficient: 0.5    # Threshold coefficient for variable threshold
 broad_depth_n_bootstrap: 1000    # Bootstrap iterations for broad depth analysis
 broad_depth_conf_int: 95         # Confidence level for broad depth analysis
+broad_depth_seed: 1              # Base seed for deterministic per-comparison bootstrap seeds
 
 # Reference depth calibration
 calibration_types: []       # Optional extra cell types to include in PC3/z plots

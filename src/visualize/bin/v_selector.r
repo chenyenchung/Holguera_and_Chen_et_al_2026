@@ -81,7 +81,7 @@ axis_scales <- function() {
 color_func <- function() {
   f <- scale_color_manual(
     values = c(
-      "Notch On" = "#008800", "Notch Off" = "#990099", "nil" = "grey75"
+      "Notch On" = "#1c75bc", "Notch Off" = "#ff69d2", "nil" = "grey75"
     ),
     breaks = c("Notch On", "Notch Off")
   )

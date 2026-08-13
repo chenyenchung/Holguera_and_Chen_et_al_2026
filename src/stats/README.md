@@ -90,6 +90,7 @@ broad_depth_coefficient: 0.5    # Threshold coefficient for variable threshold
 broad_depth_n_bootstrap: 1000    # Bootstrap iterations for broad depth analysis
 broad_depth_conf_int: 95         # Confidence level for broad depth analysis
 broad_depth_seed: 1              # Base seed for deterministic per-comparison bootstrap seeds
+stats_presets: null              # Optional comma/semicolon-separated subset; null runs all presets
 
 # Reference depth calibration
 calibration_types: []       # Optional extra cell types to include in PC3/z plots
@@ -122,6 +123,21 @@ ME_L,^Dm,^Pm,regex,Medulla left: Dm types mark superficial layers
 ```bash
 nextflow run src/stats/main.nf --ref_groupsf data/reference_groups.csv
 ```
+
+To run only the pooled Hth-window spatial-origin test, use:
+
+```bash
+nextflow run src/stats/main.nf \
+  --stats_presets spatial_Hth \
+  -output-dir int/hth_stats_run \
+  -resume
+```
+
+`spatial_Hth` is restricted to `ME_R` and produces separate pre- and
+postsynaptic tests. It is pooled across Notch status and neuronal class, and
+tests only exact-Hth spatial-origin groups; the Dm, Pm, and other neurons shown
+as plotting context are not treated as hypotheses. A separate output directory
+keeps the targeted run from replacing the all-preset combined workbook.
 
 If the configuration file is not found, the analysis falls back to hardcoded
 reference groups with a deprecation warning.

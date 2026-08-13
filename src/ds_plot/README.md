@@ -5,7 +5,7 @@ Generates the deep/superficial bias figure PDFs formerly assembled by
 
 ## Overview
 
-The workflow has four stages:
+The workflow has five stages:
 
 1. Per-neuropil preparation of type-depth inputs and cell-type shards.
 2. Type-depth bootstrap testing for `ME_R`, `LO_R`, and `LOP_R`, separately for
@@ -14,6 +14,8 @@ The workflow has four stages:
    `combined_type_depth.csv`.
 4. Rendering of deep/superficial figure PDFs from the broad-depth statistics
    workbook and the combined type-depth table.
+5. Rendering of spatial-origin panels at neuronal-type resolution, organized
+   by temporal origin and stratified by Notch state and neuronal class.
 
 The type-depth step restores the historical depth input required by the plots;
 the current `src/de_analysis` workflow no longer produces this table.
@@ -60,11 +62,38 @@ Published under `int/`:
 - `Supp_fig_Y2.pdf`
 - `Supp_fig_Y3.pdf`
 - `Supp_fig_Y4.pdf`
-- `Supp_fig_Y6.pdf`
-- `Supp_fig_Y6_split.pdf` (spatial origin split by Notch status and neuron class)
+- `Supp_Figure_18a_ME_R_spatial_within_temporal.pdf`
+- `Supp_Figure_18b_LO_R_spatial_within_temporal.pdf`
+- `Supp_Figure_18c_LOP_R_spatial_within_temporal.pdf`
+- `Supp_Figure_18_spatial_within_temporal_review.pdf`
+- `Supp_Figure_18_spatial_within_temporal_legend.pdf`
+- Five individual combined known+new temporal depth-bias panels for Figure 4e,
+  Figure 4i, Supplementary Figure 11g, 11m, and 11s, plus two review sheets
+
+Known and newly annotated panels in `Supp_fig_Y1.pdf`,
+`Supp_fig_Y1-alt.pdf`, and `Supp_fig_Y3.pdf` carry explicit annotation-status
+subtitles so the distinction remains visible when panels are extracted.
+The combined Figure 4 and Supplementary Figure 11 panels use the `temporal_all`
+statistics and are subtitled "Previously known + newly annotated neurons".
 
 Published under `int/ds_plot/type_depth/`:
 
 - Per-neuropil/per-synapse-type `*_type_depth.csv` files.
 - `combined_type_depth.csv`.
 - `type_depth_summary.txt`.
+
+Published under `int/ds_plot/spatial_origin/`:
+
+- `spatial_origin_neuronal_types.csv` with one row per confidently annotated
+  neuronal type.
+- `spatial_origin_neuronal_types.xlsx` with the neuronal-type lookup and the
+  exact long-form data used in Supplementary Figure 18.
+
+The former aggregate spatial-origin panels are no longer manuscript outputs.
+Their broad-depth statistics remain available for audit, but the replacement
+figure compares spatial origins within temporal, Notch, and neuronal-class
+context to avoid conflating different temporal compositions. Its three-column
+review sheet follows the layout and graphic design of `Supp_fig_Y6_split.pdf`
+(depth ribbons, point ranges, facets, typography, and page size), while
+retaining spatial origin as the point color. Significance marks are omitted
+because this panel is a descriptive within-temporal comparison.

@@ -119,10 +119,11 @@ stable_seed <- function(base_seed, ...) {
 
 argvs <- commandArgs(trailingOnly = TRUE, asValues = TRUE)
 
-if (file.exists("./utils.r")) {
+if (!is.null(argvs$utils) && file.exists(argvs$utils)) {
+  source(argvs$utils, chdir = FALSE)
+} else if (file.exists("./utils.r")) {
   source("./utils.r", chdir = FALSE)
-}
-if (file.exists("./src/utils.r")) {
+} else if (file.exists("./src/utils.r")) {
   source("src/utils.r", chdir = FALSE)
 }
 
@@ -419,6 +420,13 @@ for (i in names(np_coord_list)) {
   groups_to_test <- groups_to_test[!is.na(groups_to_test)]
   if (preset$color_by == "spatial_origin") {
     groups_to_test <- setdiff(groups_to_test, "unknown")
+  }
+  if (argvs$use_preset == "spatial_Hth") {
+    # filter_hth_spatial() retains Dm/Pm references and other medulla neurons
+    # as plotting context. Test only the spatial origins assigned to confident,
+    # exact-Hth target neurons, in the canonical spatial-origin order.
+    hth_spatial_groups <- setdiff(names(spatial_origin_color_values()), "unknown")
+    groups_to_test <- intersect(hth_spatial_groups, groups_to_test)
   }
   
   # Perform bootstrap analysis for each group

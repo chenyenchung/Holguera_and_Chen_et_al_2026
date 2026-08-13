@@ -176,10 +176,33 @@ if (preset$notch_split) {
   }
   np_coord$notch_ntype <- paste(np_coord$Notch, np_coord$ntype, sep = "_")
   np_coord$notch_ntype <- sub("^_", "", np_coord$notch_ntype)
-  np_coord <- split(np_coord, np_coord$notch_ntype, drop = TRUE)
   np_raw$notch_ntype <- paste(np_raw$Notch, np_raw$ntype, sep = "_")
   np_raw$notch_ntype <- sub("^_", "", np_raw$notch_ntype)
-  np_raw <- split(np_raw, np_raw$notch_ntype, drop = TRUE)
+  available_notch_groups <- unique(c(
+    np_coord$notch_ntype,
+    np_raw$notch_ntype
+  ))
+  valid_notch_groups <- c(
+    "Notch On_intrinsic",
+    "Notch Off_intrinsic",
+    "Notch On_projection",
+    "Notch Off_projection"
+  )
+  notch_groups <- valid_notch_groups[
+    valid_notch_groups %in% available_notch_groups
+  ]
+  np_coord <- setNames(
+    lapply(notch_groups, function(group_name) {
+      np_coord[notch_ntype == group_name]
+    }),
+    notch_groups
+  )
+  np_raw <- setNames(
+    lapply(notch_groups, function(group_name) {
+      np_raw[notch_ntype == group_name]
+    }),
+    notch_groups
+  )
 } else {
   np_coord <- list(all = np_coord)
   np_raw <- list(all = np_raw)
@@ -187,7 +210,14 @@ if (preset$notch_split) {
 
 for (i in names(np_coord)) {
   # Skip if no data after filtering
-  if (nrow(np_coord[[i]]) == 0) {
+  if (
+    is.null(np_coord[[i]]) ||
+      !is.data.frame(np_coord[[i]]) ||
+      nrow(np_coord[[i]]) == 0 ||
+      is.null(np_raw[[i]]) ||
+      !is.data.frame(np_raw[[i]]) ||
+      nrow(np_raw[[i]]) == 0
+  ) {
     next
   }
 
@@ -329,7 +359,11 @@ for (i in names(np_coord)) {
     plot = legendsp, paste0(out_prefix, "_legend.pdf")
   )
 
-  if (preset$color_by == "spatial_origin" && "Notch" %in% colnames(np_coord[[i]])) {
+  if (
+    preset$color_by == "spatial_origin" &&
+      !preset$notch_split &&
+      "Notch" %in% colnames(np_coord[[i]])
+  ) {
     for (notch_status in spatial_notch_levels) {
       notch_label <- gsub(" ", "", notch_status)
       np_coord_notch <- copy(np_coord[[i]][Notch == notch_status])

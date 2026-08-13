@@ -69,6 +69,24 @@ Rscript src/manual_visualize.r \
 - Inputs: `data/P15_tf.csv`, `data/P15_CAM.csv`, `data/selectors.csv`, `data/visual_neurons_anno.csv`
 - Outputs: `int/P15_TF_readable.csv`, `int/P15_CAM_readable.csv`, `int/Selector_readable.csv`
 
+### `src/export_csm_neuronal_types.R`
+
+- Purpose: export the P15 CSM expression calls as a neuronal-type-oriented
+  Excel workbook.
+- Inputs: `data/P15_CAM.csv` and `data/visual_neurons_anno.csv` by default.
+- Mapping rule: include only confidently annotated neuronal types and expand a
+  positive Ozel cluster call to every confident neuronal type mapped to that
+  cluster.
+- Output: `int/P15_CSM_neuronal_types.xlsx` by default, with summary, long,
+  matrix, type-metadata, mapping-audit, and provenance sheets.
+
+```bash
+Rscript src/export_csm_neuronal_types.R \
+  --cam data/P15_CAM.csv \
+  --ann data/visual_neurons_anno.csv \
+  --output int/P15_CSM_neuronal_types.xlsx
+```
+
 ### `src/utils.r`
 
 - Purpose: shared plotting and data-processing helper functions used across scripts/modules

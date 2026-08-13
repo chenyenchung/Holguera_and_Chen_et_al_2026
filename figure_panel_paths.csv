@@ -38,6 +38,8 @@ Figure 4,c,int/Color_by_temporal_origin/All_confidently_annotated_R/LO_R_pre_tem
 Figure 4,c',int/Color_by_temporal_origin/All_confidently_annotated_R/LO_R_pre_temporal_all_asis_Notch Off_projection.pdf
 Figure 4,d,int/Color_by_temporal_origin/All_confidently_annotated_R/LO_R_post_temporal_all_asis_Notch On_projection.pdf
 Figure 4,d',int/Color_by_temporal_origin/All_confidently_annotated_R/LO_R_post_temporal_all_asis_Notch Off_projection.pdf
+Figure 4,e,int/Figure_4e_Annotated_Notch_On_projection_depth_bias.pdf
+Figure 4,i,int/Figure_4i_Annotated_Notch_Off_projection_depth_bias.pdf
 Figure 5,a,int/Color_by_function_subsystem/Previously_known_R/ME_R_pre_subsystem_known_asis_Notch On_intrinsic.pdf
 Figure 5,a',int/Color_by_function_subsystem/Previously_known_R/ME_R_post_subsystem_known_asis_Notch On_intrinsic.pdf
 Figure 5,b,int/Color_by_function_subsystem/Previously_known_R/ME_R_pre_subsystem_known_asis_Notch Off_intrinsic.pdf
@@ -154,6 +156,9 @@ Supp. Figure 11,e,int/Color_by_cell_type/Putative_OPC_types_R/ME_R_pre_type_puta
 Supp. Figure 11,e',int/Color_by_cell_type/Putative_OPC_types_R/ME_R_post_type_putative_asis_all.pdf
 Supp. Figure 11,f,int/Color_by_temporal_origin/All_confidently_annotated_R/ME_R_pre_temporal_all_asis_Notch Off_intrinsic.pdf
 Supp. Figure 11,f',int/Color_by_temporal_origin/All_confidently_annotated_R/ME_R_post_temporal_all_asis_Notch Off_intrinsic.pdf
+Supp. Figure 11,g,int/Supp_Figure_11g_Annotated_Notch_On_projection_depth_bias.pdf
+Supp. Figure 11,m,int/Supp_Figure_11m_Annotated_Notch_Off_projection_depth_bias.pdf
+Supp. Figure 11,s,int/Supp_Figure_11s_Annotated_Notch_Off_interneuron_depth_bias.pdf
 Supp. Figure 12,a,int/Supp_fig_Y3.pdf
 Supp. Figure 12,b,int/Supp_fig_Y3.pdf
 Supp. Figure 12,c,int/Supp_fig_Y3.pdf
@@ -205,6 +210,6 @@ Supp. Figure 17,c,int/Selector/R/ME_R_pre_asis_CG4328_NotchOff.pdf
 Supp. Figure 17,c,int/Selector/R/ME_R_post_asis_CG4328_NotchOff.pdf
 Supp. Figure 17,d,int/Selector/R/ME_R_pre_asis_hbn_NotchOff.pdf
 Supp. Figure 17,d,int/Selector/R/ME_R_post_asis_hbn_NotchOff.pdf
-Supp. Figure 18,a,int/Supp_fig_Y6.pdf
-Supp. Figure 18,b,int/Supp_fig_Y6.pdf
-Supp. Figure 18,c,int/Supp_fig_Y6.pdf
+Supp. Figure 18,a,int/Supp_Figure_18a_ME_R_spatial_within_temporal.pdf
+Supp. Figure 18,b,int/Supp_Figure_18b_LO_R_spatial_within_temporal.pdf
+Supp. Figure 18,c,int/Supp_Figure_18c_LOP_R_spatial_within_temporal.pdf

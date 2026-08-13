@@ -24,6 +24,7 @@ params.broad_depth_coefficient = 0.5
 params.broad_depth_n_bootstrap = 1000
 params.broad_depth_conf_int = 95
 params.broad_depth_seed = 1
+params.stats_presets = null
 
 process DepthStatsAnalysis {
   cpus '1'
@@ -294,6 +295,28 @@ def normalizeCalibrationTypes(raw_types) {
     .join(',')
 }
 
+def normalizeStatsPresets(raw_presets, available_presets) {
+  if (raw_presets == null || raw_presets.toString().trim() == '') {
+    return available_presets
+  }
+
+  def selected = raw_presets instanceof List
+    ? raw_presets.collect { preset -> preset.toString().trim() }
+        .findAll { preset -> preset }
+    : raw_presets.toString()
+        .split(/[;,]/)
+        .collect { preset -> preset.trim() }
+        .findAll { preset -> preset }
+  def unknown = selected.findAll { preset -> !(preset in available_presets) }
+  if (unknown) {
+    throw new IllegalArgumentException(
+      "Unknown stats preset(s): ${unknown.join(', ')}. " +
+      "Available presets: ${available_presets.join(', ')}"
+    )
+  }
+  return selected.unique()
+}
+
 workflow {
   main:
   // Define analysis parameters
@@ -302,7 +325,7 @@ workflow {
   def MAT_PREFIX = 'int/idv_mat/'
   def SPARSE_LIMIT = params.sparse_limit
   def CALIBRATION_TYPES = normalizeCalibrationTypes(params.calibration_types)
-  def STATS_PRESETS = [
+  def AVAILABLE_STATS_PRESETS = [
     'temporal_known',
     'subsystem_known',
     'temporal_new',
@@ -321,8 +344,13 @@ workflow {
     'type_putative_9',
     'subsystem_putative',
     'spatial_all',
-    'spatial_notch'
+    'spatial_notch',
+    'spatial_Hth'
   ]
+  def STATS_PRESETS = normalizeStatsPresets(
+    params.stats_presets,
+    AVAILABLE_STATS_PRESETS
+  )
 
   // Create input channel
   cond_ch = channel
@@ -338,6 +366,10 @@ workflow {
         .map { row -> row.preset }
         .filter { preset -> preset in STATS_PRESETS }
     )
+    // The Hth-window visualization is defined only for the right medulla.
+    .filter { condition ->
+      condition[3] != 'spatial_Hth' || condition[0] == 'ME_R'
+    }
 
   reference_cond_ch = channel
     .fromList(NP)

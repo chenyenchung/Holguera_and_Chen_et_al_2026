@@ -12,6 +12,7 @@ This workflow performs neuron-level bootstrap analysis to test whether synapses 
 - Tests both presynaptic and postsynaptic compartments separately
 - Uses neuron-level bootstrap (same algorithm as `src/stats/bin/broad_depth.r`)
 - Outputs comprehensive statistics with FDR correction
+- Generates synapse scatter plots with overall depth-density curves
 
 ## Usage
 
@@ -65,6 +66,10 @@ nextflow run main.nf
 | `n_bootstrap` | `1000` | Number of bootstrap iterations |
 | `conf_int` | `95` | Confidence interval level (%) |
 | `genes_per_batch` | `0` | Genes per batch (0 = no batching, processes all genes in single job) |
+| `selector_viz_script` | `src/visualize/bin/v_selector.r` | Selector synapse visualization script |
+| `subsample` | `10000` | Synapses sampled per visualization process |
+| `density` | `asis` | Depth-density mode used for visualization |
+| `use_axis_limits` | `true` | Apply configured neuropil axis limits |
 
 ## Algorithm
 
@@ -85,8 +90,10 @@ nextflow run main.nf
    c. Prepare neuron-level depth mapping for the expressing set
    d. Run C++ bootstrap vs shared canonical reference groups
    e. Classify as superficial/deep/neither
-6. Apply FDR correction per Notch stratum
-7. Output CSV with comprehensive statistics
+6. Combine all workflow batches and recompute FDR within each
+   neuropil × synapse-type × Notch testing family
+7. Output CSV and Excel reports with the complete statistics, direction, and
+   expressing neuronal-type lists
 ```
 
 ### Reference groups
@@ -139,7 +146,14 @@ selector_test/
 │   └── LOP_R_post_selector_depth.csv
 ├── combined_selector_depth.csv
 ├── selector_depth_results.xlsx          # Excel with ME_R, LO_R, and LOP_R sheets
-└── selector_depth_summary.txt
+├── selector_depth_summary.txt
+└── visualization/
+    ├── ME_R_pre/
+    ├── ME_R_post/
+    ├── LO_R_pre/
+    ├── LO_R_post/
+    ├── LOP_R_pre/
+    └── LOP_R_post/
 ```
 
 **With batching** (e.g., `--genes_per_batch 10`):
@@ -162,13 +176,24 @@ selector_test/
 │   └── ...
 ├── combined_selector_depth.csv          # All batches combined
 ├── selector_depth_results.xlsx          # Excel with ME_R, LO_R, and LOP_R sheets
-└── selector_depth_summary.txt
+├── selector_depth_summary.txt
+└── visualization/
+    ├── ME_R_pre/
+    ├── ME_R_post/
+    ├── LO_R_pre/
+    ├── LO_R_post/
+    ├── LOP_R_pre/
+    └── LOP_R_post/
 ```
 
-### CSV columns (43 total)
+### Combined CSV and Excel columns
+
+The combined report preserves the full per-test schema. Provisional FDR values
+from individual workflow batches are overwritten after collection, so changing
+`genes_per_batch` does not change `p_value_fdr` or `significant_fdr`.
 
 **Gene information:**
-- `gene`: Gene symbol
+- `types_of_interest`: Gene symbol
 - `skip_reason`: Why gene was skipped (NA if tested)
 - `n_neurons_expressing`: Number of neurons expressing this gene
 - `n_synapses_expressing`: Number of synapses from expressing neurons

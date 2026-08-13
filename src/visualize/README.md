@@ -15,9 +15,20 @@ Location of synapses in 3D brain space
 
 ### 2. Gene Expression Highlights (`v_selector.r`)
 
-Synapses from cells expressing specific genes at P15
+Synapses from cells expressing specific genes. P15 TF and CSM plots use the
+P15 expression matrices; selector TF plots use stable consensus calls across
+P15, P30, P40, P50, P70, and adult.
 
 **Data source**: Özel et al. (2020) expression atlas
+
+To run only selected spatial-distribution presets, pass a comma- or
+semicolon-separated list. For example:
+
+```bash
+nextflow run src/visualize/main.nf \
+  --visualization_presets spatial_notch \
+  -resume
+```
 
 ### 3. Cell Type Family Trees (`similarity_tree.r`)
 

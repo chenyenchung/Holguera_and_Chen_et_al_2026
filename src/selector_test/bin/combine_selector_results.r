@@ -16,6 +16,11 @@ combine_selector_results <- function(pattern = "_selector_depth\\.csv$",
 
   # Find all result files
   result_files <- list.files(pattern = pattern, recursive = TRUE, full.names = TRUE)
+  # The default pattern also matches the prior combined output. Never feed an
+  # aggregate back into itself when rerunning this script in an existing result
+  # directory.
+  aggregate_names <- unique(c(basename(combined_file), "combined_selector_depth.csv"))
+  result_files <- result_files[!basename(result_files) %in% aggregate_names]
 
   if (length(result_files) == 0) {
     writeLines("No results to combine", summary_file)
@@ -23,22 +28,52 @@ combine_selector_results <- function(pattern = "_selector_depth\\.csv$",
     return(invisible(NULL))
   }
 
-  # Combine all results
+  # Combine all results. Individual files contain provisional per-batch FDR
+  # values; replace them below after the complete testing family is available.
   all_results <- rbindlist(lapply(result_files, fread), fill = TRUE)
-  all_results <- all_results[, c(
-    "types_of_interest", "notch_category", "observed_bias_ratio", "p_value_bias_ratio", "p_value_fdr",
-    "syn_type", "observed_sup_d", "observed_deep_d", "observed_distance_diff",
-    "conflict_with_references", "overlap_superficial", "overlap_deep", "overlap_any",
-    "observed_delta_thres_base", "bootstrap_distance_diff_median", "bootstrap_distance_diff_lower",
-    "bootstrap_distance_diff_upper", "bootstrap_delta_thres_base_median",
-    "bootstrap_delta_thres_base_lower", "bootstrap_delta_thres_base_upper",
-    "bootstrap_bias_ratio_median", "bootstrap_bias_ratio_lower", "bootstrap_bias_ratio_upper",
-    "neuropil", "skip_reason"
-  )]
 
   # Standardize tested rows: represent blank skip reasons as NA
   all_results[, skip_reason := trimws(skip_reason)]
   all_results[skip_reason == "", skip_reason := NA_character_]
+
+  # Recompute FDR across all selectors in each biological testing family so
+  # results are independent of workflow batch size and match the CAM analysis.
+  all_results[, `:=`(p_value_fdr = NA_real_, significant_fdr = NA)]
+  fdr_groups <- c("neuropil", "syn_type", "notch_category")
+  all_results[
+    !is.na(p_value_exceeds_threshold),
+    `:=`(
+      p_value_fdr = p.adjust(p_value_exceeds_threshold, method = "fdr"),
+      significant_fdr = p.adjust(
+        p_value_exceeds_threshold,
+        method = "fdr"
+      ) < 0.05
+    ),
+    by = fdr_groups
+  ]
+
+  preferred_cols <- c(
+    "types_of_interest", "notch_category", "observed_bias_ratio",
+    "p_value_bias_ratio", "p_value_exceeds_threshold", "p_value_fdr",
+    "significant_fdr", "direction", "syn_type", "observed_sup_d",
+    "observed_deep_d", "observed_distance_diff", "conflict_with_references",
+    "overlap_superficial", "overlap_deep", "overlap_any",
+    "observed_delta_thres_base", "observed_delta_thres",
+    "bootstrap_distance_diff_median", "bootstrap_distance_diff_lower",
+    "bootstrap_distance_diff_upper", "bootstrap_delta_thres_base_median",
+    "bootstrap_delta_thres_base_lower", "bootstrap_delta_thres_base_upper",
+    "bootstrap_bias_ratio_median", "bootstrap_bias_ratio_lower",
+    "bootstrap_bias_ratio_upper", "n_neurons_expressing",
+    "n_synapses_expressing", "n_types_expressing", "types_expressing",
+    "ref_superficial", "ref_deep", "coefficient", "n_bootstrap",
+    "conf_level", "neuropil", "batch_id", "sparse_limit", "analysis_date",
+    "skip_reason"
+  )
+  ordered_cols <- c(
+    intersect(preferred_cols, names(all_results)),
+    setdiff(names(all_results), preferred_cols)
+  )
+  all_results <- all_results[, ..ordered_cols]
 
   # Write combined CSV
   fwrite(all_results, combined_file)
@@ -48,24 +83,29 @@ combine_selector_results <- function(pattern = "_selector_depth\\.csv$",
   # Drop internal QC columns from report workbook only
   excel_results <- copy(all_results)
   excel_drop_cols <- c(
-    "conflict_with_references", "overlap_superficial", "overlap_deep", "overlap_any"
+    "conflict_with_references", "overlap_superficial", "overlap_deep",
+    "overlap_any", "batch_id"
   )
   excel_results[, (intersect(excel_drop_cols, colnames(excel_results))) := NULL]
-  neuropil_splits <- split(excel_results, excel_results$neuropil)
-
   wb <- createWorkbook()
 
-  for (np in names(neuropil_splits)) {
+  for (np in sort(unique(excel_results$neuropil))) {
     # Create sheet name (ME_L, LO_L, etc.)
     sheet_name <- np
 
     addWorksheet(wb, sheet_name)
-    writeData(wb, sheet_name, subset(neuropil_splits[[np]], is.na(skip_reason)))
-    setColWidths(wb, sheet_name, cols = 1:ncol(neuropil_splits[[np]]), widths = "auto")
+    sheet_data <- excel_results[neuropil == np & is.na(skip_reason)]
+    writeData(wb, sheet_name, sheet_data)
+    if (ncol(sheet_data) > 0) {
+      setColWidths(wb, sheet_name, cols = seq_len(ncol(sheet_data)), widths = "auto")
+    }
   }
 
   saveWorkbook(wb, excel_file, overwrite = TRUE)
-  cat("Excel file written to:", excel_file, "with", length(neuropil_splits), "sheets\n")
+  cat(
+    "Excel file written to:", excel_file, "with",
+    length(unique(excel_results$neuropil)), "sheets\n"
+  )
 
   # Generate summary statistics
   sink(summary_file)

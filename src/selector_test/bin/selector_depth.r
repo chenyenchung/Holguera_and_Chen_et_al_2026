@@ -486,7 +486,9 @@ for (gene in gene_symbols) {
 # Combine all results
 result_df <- rbindlist(results, fill = TRUE)
 
-# Apply FDR correction stratified by Notch category
+# Apply provisional within-job FDR correction stratified by Notch category.
+# combine_selector_results.r replaces these values after all workflow batches
+# are collected so the final result is independent of genes_per_batch.
 result_df$p_value_fdr <- NA_real_
 result_df$significant_fdr <- NA
 
@@ -544,7 +546,8 @@ for (notch_cat in c("Notch On", "Notch Off")) {
     n_neither <- sum(subset$direction == "neither", na.rm = TRUE)
 
     cat("Significant (raw p < 0.05):", n_sig_raw, "/", sum(valid_p), "\n")
-    cat("Significant (FDR < 0.05):", n_sig_fdr, "/", sum(valid_p), "\n")
+    cat("Significant (provisional within-job FDR < 0.05):",
+        n_sig_fdr, "/", sum(valid_p), "\n")
     cat("Direction: superficial=", n_superficial,
         ", deep=", n_deep,
         ", neither=", n_neither, "\n\n")

@@ -7,6 +7,7 @@ params.camf = 'data/P15_CAM.csv'
 params.tsf = 'data/selectors.csv'
 params.distances = 'data/TypeToTypeDistances.csv'
 params.use_axis_limits = true
+params.visualization_presets = null
 
 process Visualize {
   cpus '1'
@@ -160,6 +161,28 @@ process NeuropilPartnerAnalysis {
   """
 }
 
+def normalizeVisualizationPresets(raw_presets, available_presets) {
+  if (raw_presets == null || raw_presets.toString().trim() == '') {
+    return available_presets
+  }
+
+  def selected = raw_presets instanceof List
+    ? raw_presets.collect { preset -> preset.toString().trim() }
+        .findAll { preset -> preset }
+    : raw_presets.toString()
+        .split(/[;,]/)
+        .collect { preset -> preset.trim() }
+        .findAll { preset -> preset }
+  def unknown = selected.findAll { preset -> !(preset in available_presets) }
+  if (unknown) {
+    throw new IllegalArgumentException(
+      "Unknown visualization preset(s): ${unknown.join(', ')}. " +
+      "Available presets: ${available_presets.join(', ')}"
+    )
+  }
+  selected.unique()
+}
+
 workflow {
   main:
   def NP = ['ME_L', 'ME_R', 'LOP_L', 'LOP_R', 'LO_L', 'LO_R']
@@ -168,6 +191,15 @@ workflow {
   def MAT_PREFIX = 'int/idv_mat/'
   def SUBSAMPLE_TO = 10000
   def SPARSE_LIMIT = 100
+  def AVAILABLE_PRESETS = file(params.presetf)
+    .readLines()
+    .drop(1)
+    .collect { line -> line.split(',', -1)[0].trim() }
+    .findAll { preset -> preset }
+  def VISUALIZATION_PRESETS = normalizeVisualizationPresets(
+    params.visualization_presets,
+    AVAILABLE_PRESETS
+  )
   cond_ch = channel
     .fromList(NP)
     .map { it ->
@@ -179,6 +211,7 @@ workflow {
       channel.fromPath(file(params.presetf))
         .splitCsv(header:true)
         .map { row -> row.preset }
+        .filter { preset -> preset in VISUALIZATION_PRESETS }
     )
     .filter { np, syn, stype, preset ->
       !(preset in ['type_T1', 'spatial_Hth']) || np == 'ME_R'

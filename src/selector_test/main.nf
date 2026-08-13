@@ -10,11 +10,15 @@ params.metaf = 'data/viz_meta.csv'
 params.ref_groupsf = 'data/reference_groups.csv'
 params.utilsf = 'src/utils.r'
 params.broad_depth_cppf = 'src/stats/bin/broad_depth.cpp'
+params.selector_viz_script = 'src/visualize/bin/v_selector.r'
 params.sparse_limit = 100
 params.coefficient = 0.5
 params.n_bootstrap = 1000
 params.conf_int = 95
 params.genes_per_batch = 5  // 0 = no batching, >0 = genes per batch
+params.subsample = 10000
+params.density = 'asis'
+params.use_axis_limits = true
 
 process SelectorDepthAnalysis {
   cpus 1
@@ -81,6 +85,43 @@ process CombineSelectorResults {
     --summary selector_depth_summary.txt \
     --combined combined_selector_depth.csv \
     --excel selector_depth_results.xlsx
+  """
+}
+
+process VisualizeSelector {
+  cpus 1
+  memory '14GB'
+  time '2h'
+  module 'r/4.5.1'
+
+  input:
+  tuple val(np), path(syn), val(stype), val(den)
+  path selectors
+  path ann
+  path meta
+  path utils
+  path viz_script
+  val subsample
+  val slimit
+  val use_axis_limits
+
+  output:
+  tuple val("${np}"), val("${stype}"), path('*.pdf'), optional: true
+
+  script:
+  """
+  Rscript ${viz_script} \
+    --np ${np} \
+    --synf ${syn} \
+    --syn_type ${stype} \
+    --ts ${selectors} \
+    --density ${den} \
+    --ann ${ann} \
+    --meta ${meta} \
+    --utils ${utils} \
+    --subsample ${subsample} \
+    --sparse_limit ${slimit} \
+    --use_axis_limits ${use_axis_limits}
   """
 }
 
@@ -154,12 +195,32 @@ workflow {
     file('src/selector_test/bin/combine_selector_results.r')
   )
 
+  viz_cond_ch = channel
+    .fromList(NP)
+    .map { np -> [np, file(MAT_PREFIX + np + '_rotated.csv.gz')] }
+    .combine(channel.fromList(STYPE))
+    .combine(channel.fromList([params.density]))
+    .map { np, synfile, stype, den -> [np, synfile, stype, den] }
+
+  viz_ch = VisualizeSelector(
+    viz_cond_ch,
+    file(params.selectorsf),
+    file(params.annf),
+    file(params.metaf),
+    file(params.utilsf),
+    file(params.selector_viz_script),
+    params.subsample,
+    params.sparse_limit,
+    params.use_axis_limits
+  )
+
   publish:
   // Publish individual results to neuropil-specific directories
   results = analysis_ch
   summary = combined_ch.summary
   combined = combined_ch.combined
   excel = combined_ch.excel
+  visualizations = viz_ch
 }
 
 output {
@@ -175,4 +236,11 @@ output {
   summary { path "selector_test/" }
   combined { path "selector_test/" }
   excel { path "selector_test/" }
+  visualizations {
+    path { input ->
+      def np = input[0]
+      def stype = input[1]
+      return "selector_test/visualization/${np}_${stype}"
+    }
+  }
 }

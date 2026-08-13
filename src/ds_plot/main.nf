@@ -137,6 +137,33 @@ process DsPlot {
   """
 }
 
+process SpatialTemporalDepthFigure {
+  cpus 1
+  memory '8GB'
+  time '30m'
+  module 'r/4.5.1'
+
+  input:
+  path ann
+  path utils
+  path type_depth
+  path figure_script
+
+  output:
+  path "Supp_Figure_18*_spatial_within_temporal*.pdf", emit: figures
+  path "spatial_origin_neuronal_types.csv", emit: csv
+  path "spatial_origin_neuronal_types.xlsx", emit: excel
+
+  script:
+  """
+  Rscript ${figure_script} \
+    --ann ${ann} \
+    --utils ${utils} \
+    --type_depth ${type_depth} \
+    --out_dir .
+  """
+}
+
 def normalizeParamList(raw) {
   if (raw instanceof List) {
     return raw.collect { it.toString().trim() }.findAll { it }
@@ -199,11 +226,21 @@ workflow {
     combined_depth_ch.depth
   )
 
+  spatial_figure_ch = SpatialTemporalDepthFigure(
+    file(params.annf),
+    file(params.utilsf),
+    combined_depth_ch.depth,
+    file("${workflow.projectDir}/bin/spatial_temporal_depth.r")
+  )
+
   publish:
   type_depth_results = combined_depth_ch.condition_depths
   combined_type_depth = combined_depth_ch.depth
   type_depth_summary = combined_depth_ch.summary
   figures = figure_ch
+  spatial_figures = spatial_figure_ch.figures
+  spatial_origin_csv = spatial_figure_ch.csv
+  spatial_origin_excel = spatial_figure_ch.excel
 }
 
 output {
@@ -211,4 +248,7 @@ output {
   combined_type_depth { path "ds_plot/type_depth/" }
   type_depth_summary { path "ds_plot/type_depth/" }
   figures { path "./" }
+  spatial_figures { path "./" }
+  spatial_origin_csv { path "ds_plot/spatial_origin/" }
+  spatial_origin_excel { path "ds_plot/spatial_origin/" }
 }

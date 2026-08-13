@@ -62,6 +62,9 @@ boot$syn_type <- factor(
 )
 
 ds_ribbon_alpha <- 0.1
+known_neuron_subtitle <- "Previously known neurons"
+new_neuron_subtitle <- "Newly annotated neurons"
+combined_neuron_subtitle <- "Previously known + newly annotated neurons"
 
 # General plotting
 dsplot <- function(
@@ -69,6 +72,7 @@ dsplot <- function(
   neuropil,
   split,
   title,
+  subtitle = NULL,
   bg_alpha = ds_ribbon_alpha,
   star_size = 4,
   star_location = 1.15,
@@ -293,12 +297,14 @@ dsplot <- function(
       axis.title.y = element_text(size = 6),
       axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 6),
       axis.text.y = element_text(size = 6),
-      plot.title = element_text(size = 8, face = "bold")
+      plot.title = element_text(size = 8, face = "bold"),
+      plot.subtitle = element_text(size = 6, face = "italic")
     ) +
     guides(color = "none", size = guide_legend(order = 1)) +
     labs(
       y = ylab,
-      title = parse(text = plot_title)
+      title = parse(text = plot_title),
+      subtitle = subtitle
     ) +
     scale_y_continuous(limits = c(-1, star_location + 0.1))
 
@@ -371,6 +377,7 @@ Y1A <- dsplot(
   boot,
   "ME_R",
   "Notch On_intrinsic",
+  subtitle = known_neuron_subtitle,
 )
 
 ## Y1B — Medulla NotchOff interneurons: temporal shift
@@ -378,6 +385,7 @@ Y1B <- dsplot(
   boot,
   "ME_R",
   "Notch Off_intrinsic",
+  subtitle = known_neuron_subtitle,
 )
 
 # Y1C — Medulla NotchOn projection neurons: presyn temporal effect; postsyn distal
@@ -385,6 +393,7 @@ Y1C <- dsplot(
   boot,
   "ME_R",
   "Notch On_projection",
+  subtitle = known_neuron_subtitle,
 )
 
 # Y1D — Medulla NotchOff projection neurons
@@ -392,6 +401,7 @@ Y1D <- dsplot(
   boot,
   "ME_R",
   "Notch Off_projection",
+  subtitle = known_neuron_subtitle,
 )
 
 # Y1E — Lobula NotchOn projection neurons: early superficial → late deep
@@ -399,6 +409,7 @@ Y1E <- dsplot(
   boot,
   "LO_R",
   "Notch On_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -407,6 +418,7 @@ Y1F <- dsplot(
   boot,
   "LO_R",
   "Notch Off_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -415,6 +427,7 @@ Y1G <- dsplot(
   boot,
   "LOP_R",
   c("Notch Off_projection", "Notch On_projection"),
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -448,6 +461,7 @@ Y1H <- dsplot(
   boot_new,
   "ME_R",
   "Notch Off_intrinsic",
+  subtitle = new_neuron_subtitle,
 )
 
 # Y1I - New lobula NotchOn Hbn/Opa/Slp types: deep-biased
@@ -455,6 +469,7 @@ Y1I <- dsplot(
   boot_new,
   "LO_R",
   "Notch On_projection",
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -462,7 +477,8 @@ Y1I <- dsplot(
 Y1J <- dsplot(
   boot_new,
   "ME_R",
-  "Notch On_projection"
+  "Notch On_projection",
+  subtitle = new_neuron_subtitle
 )
 
 # Y1K - New Erm/Ey NotchOff projection neurons in lobula: deep-biased
@@ -470,6 +486,7 @@ Y1K <- dsplot(
   boot_new,
   "LO_R",
   "Notch Off_projection",
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -477,13 +494,15 @@ Y1K <- dsplot(
 Y1L <- dsplot(
   boot_new,
   "ME_R",
-  "Notch Off_projection"
+  "Notch Off_projection",
+  subtitle = new_neuron_subtitle
 )
 
 Y1G_new <- dsplot(
   boot_new,
   "LOP_R",
   c("Notch Off_projection", "Notch On_projection"),
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -553,6 +572,7 @@ Y1A_alt <- dsplot(
   boot,
   "ME_R",
   "Notch On_intrinsic",
+  subtitle = known_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -563,6 +583,7 @@ Y1B_alt <- dsplot(
   boot,
   "ME_R",
   "Notch Off_intrinsic",
+  subtitle = known_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -573,6 +594,7 @@ Y1C_alt <- dsplot(
   boot,
   "ME_R",
   "Notch On_projection",
+  subtitle = known_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -583,6 +605,7 @@ Y1D_alt <- dsplot(
   boot,
   "ME_R",
   "Notch Off_projection",
+  subtitle = known_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -593,6 +616,7 @@ Y1E_alt <- dsplot(
   boot,
   "LO_R",
   "Notch On_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -604,6 +628,7 @@ Y1F_alt <- dsplot(
   boot,
   "LO_R",
   "Notch Off_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -615,6 +640,7 @@ Y1G_alt <- dsplot(
   boot,
   "LOP_R",
   c("Notch Off_projection", "Notch On_projection"),
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -626,6 +652,7 @@ Y1H_alt <- dsplot(
   boot_new,
   "ME_R",
   "Notch Off_intrinsic",
+  subtitle = new_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -636,6 +663,7 @@ Y1I_alt <- dsplot(
   boot_new,
   "LO_R",
   "Notch On_projection",
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -647,6 +675,7 @@ Y1J_alt <- dsplot(
   boot_new,
   "ME_R",
   "Notch On_projection",
+  subtitle = new_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -657,6 +686,7 @@ Y1K_alt <- dsplot(
   boot_new,
   "LO_R",
   "Notch Off_projection",
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -668,6 +698,7 @@ Y1L_alt <- dsplot(
   boot_new,
   "ME_R",
   "Notch Off_projection",
+  subtitle = new_neuron_subtitle,
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
   synapse_size_breaks = y1_alt_synapse_size_breaks,
@@ -679,6 +710,7 @@ Y1G_new_alt <- dsplot(
   boot_new,
   "LOP_R",
   c("Notch Off_projection", "Notch On_projection"),
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)",
   scale_point_size_by_synapses = TRUE,
   synapse_size_limits = y1_alt_synapse_size_limits,
@@ -715,6 +747,119 @@ ggsave(
   plot = Y1_alt_p,
   width = 8.5,
   height = 13.75
+)
+
+### Combined known + newly annotated temporal panels for Figure 4 and Supp. Figure 11
+boot_temporal_all <- read.xlsx(
+  boot_sheets_paths,
+  sheet = which(getSheetNames(boot_sheets_paths) == "temporal_all")
+)
+
+boot_temporal_all$types_of_interest <- factor(
+  boot_temporal_all$types_of_interest,
+  levels = c(
+    "Hth",
+    "Hth/Opa",
+    "Opa/Erm",
+    "Erm/Ey",
+    "Ey/Hbn",
+    "Hbn/Opa/Slp",
+    "Slp/D",
+    "D/BH-1"
+  )
+)
+
+boot_temporal_all$syn_type <- factor(
+  boot_temporal_all$syn_type,
+  levels = c("pre", "post"),
+  labels = c("Presynapse", "Postsynapse")
+)
+
+Figure_4e <- dsplot(
+  boot_temporal_all,
+  "LO_R",
+  "Notch On_projection",
+  subtitle = combined_neuron_subtitle,
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
+
+Figure_4i <- dsplot(
+  boot_temporal_all,
+  "LO_R",
+  "Notch Off_projection",
+  subtitle = combined_neuron_subtitle,
+  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
+)
+
+Supp_Figure_11g <- dsplot(
+  boot_temporal_all,
+  "ME_R",
+  "Notch On_projection",
+  subtitle = combined_neuron_subtitle
+)
+
+Supp_Figure_11m <- dsplot(
+  boot_temporal_all,
+  "ME_R",
+  "Notch Off_projection",
+  subtitle = combined_neuron_subtitle
+)
+
+Supp_Figure_11s <- dsplot(
+  boot_temporal_all,
+  "ME_R",
+  "Notch Off_intrinsic",
+  subtitle = combined_neuron_subtitle
+)
+
+combined_panel_outputs <- list(
+  Figure_4e_Annotated_Notch_On_projection_depth_bias = Figure_4e,
+  Figure_4i_Annotated_Notch_Off_projection_depth_bias = Figure_4i,
+  Supp_Figure_11g_Annotated_Notch_On_projection_depth_bias = Supp_Figure_11g,
+  Supp_Figure_11m_Annotated_Notch_Off_projection_depth_bias = Supp_Figure_11m,
+  Supp_Figure_11s_Annotated_Notch_Off_interneuron_depth_bias = Supp_Figure_11s
+)
+
+for (panel_name in names(combined_panel_outputs)) {
+  ggsave(
+    filename = file.path(out_dir, paste0(panel_name, ".pdf")),
+    plot = combined_panel_outputs[[panel_name]],
+    width = 3.5,
+    height = 3.25
+  )
+}
+
+Figure_4_combined_annotated_depth_bias <- wrap_plots(
+  Figure_4e + labs(tag = "e"),
+  Figure_4i + labs(tag = "i"),
+  ncol = 2
+) & theme(plot.tag = element_text(size = 9))
+
+ggsave(
+  filename = file.path(
+    out_dir,
+    "Figure_4_combined_annotated_depth_bias_review.pdf"
+  ),
+  plot = Figure_4_combined_annotated_depth_bias,
+  width = 7,
+  height = 3.25
+)
+
+Supp_Figure_11_combined_annotated_depth_bias <- wrap_plots(
+  Supp_Figure_11g + labs(tag = "g"),
+  Supp_Figure_11m + labs(tag = "m"),
+  Supp_Figure_11s + labs(tag = "s"),
+  ncol = 3
+) & theme(plot.tag = element_text(size = 9))
+
+ggsave(
+  filename = file.path(
+    out_dir,
+    "Supp_Figure_11_combined_annotated_depth_bias_review.pdf"
+  ),
+  plot = Supp_Figure_11_combined_annotated_depth_bias,
+  width = 10.5,
+  height = 3.25
 )
 
 ### Y2
@@ -828,19 +973,22 @@ boot_fun$syn_type <- factor(
 Y3A <- dsplot(
   boot_fun,
   "ME_R",
-  "Notch On_intrinsic"
+  "Notch On_intrinsic",
+  subtitle = known_neuron_subtitle
 )
 
 Y3B <- dsplot(
   boot_fun,
   "ME_R",
-  "Notch Off_intrinsic"
+  "Notch Off_intrinsic",
+  subtitle = known_neuron_subtitle
 )
 
 Y3C <- dsplot(
   boot_fun,
   "LO_R",
   "Notch On_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -848,19 +996,22 @@ Y3D <- dsplot(
   boot_fun,
   "LO_R",
   "Notch Off_projection",
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
 Y3E <- dsplot(
   boot_fun,
   "ME_R",
-  "Notch On_projection"
+  "Notch On_projection",
+  subtitle = known_neuron_subtitle
 )
 
 Y3F <- dsplot(
   boot_fun,
   "ME_R",
-  "Notch Off_projection"
+  "Notch Off_projection",
+  subtitle = known_neuron_subtitle
 )
 
 boot_fun_new <- read.xlsx(
@@ -877,25 +1028,29 @@ boot_fun_new$syn_type <- factor(
 Y3G <- dsplot(
   boot_fun_new,
   "ME_R",
-  "Notch Off_intrinsic"
+  "Notch Off_intrinsic",
+  subtitle = new_neuron_subtitle
 )
 
 Y3H <- dsplot(
   boot_fun_new,
   "ME_R",
-  "Notch Off_projection"
+  "Notch Off_projection",
+  subtitle = new_neuron_subtitle
 )
 
 Y3I <- dsplot(
   boot_fun_new,
   "ME_R",
-  "Notch On_projection"
+  "Notch On_projection",
+  subtitle = new_neuron_subtitle
 )
 
 Y3J <- dsplot(
   boot_fun_new,
   "LO_R",
   c("Notch Off_projection", "Notch On_projection"),
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -903,6 +1058,7 @@ Y3K <- dsplot(
   boot_fun,
   "LOP_R",
   c("Notch On_projection", "Notch Off_projection"),
+  subtitle = known_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -910,6 +1066,7 @@ Y3L <- dsplot(
   boot_fun_new,
   "LOP_R",
   c("Notch On_projection", "Notch Off_projection"),
+  subtitle = new_neuron_subtitle,
   ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
 )
 
@@ -983,137 +1140,3 @@ ggsave(
   width = 8.5,
   height = 11
 )
-
-### Y6
-spatial_sheet_idx <- which(getSheetNames(boot_sheets_paths) == "spatial_all")
-if (length(spatial_sheet_idx) != 1) {
-  stop("Cannot find required worksheet: spatial_all")
-}
-
-boot_spatial <- read.xlsx(
-  boot_sheets_paths,
-  sheet = spatial_sheet_idx
-)
-
-boot_spatial$syn_type <- factor(
-  boot_spatial$syn_type,
-  levels = c("pre", "post"),
-  labels = c("Presynapse", "Postsynapse")
-)
-
-Y6A <- dsplot(
-  boot_spatial,
-  "ME_R",
-  "all"
-)
-
-Y6B <- dsplot(
-  boot_spatial,
-  "LO_R",
-  "all",
-  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
-)
-
-Y6C <- dsplot(
-  boot_spatial,
-  "LOP_R",
-  "all",
-  ylab = "Deep Superficial Bias\n(+: Superficial / -: Deep)"
-)
-
-Y6 <- list(
-  Y6A,
-  Y6B,
-  Y6C,
-  plot_spacer(),
-  plot_spacer(),
-  plot_spacer()
-)
-
-Y6_p <- wrap_plots(Y6, ncol = 3) +
-  plot_annotation(tag_levels = 'a') &
-  theme(plot.tag = element_text(size = 9))
-
-ggsave(
-  filename = file.path(out_dir, "Supp_fig_Y6.pdf"),
-  plot = Y6_p,
-  width = 8.5,
-  height = 4
-)
-
-### Y6 split by Notch status and neuron class
-spatial_notch_sheet_idx <- which(
-  getSheetNames(boot_sheets_paths) == "spatial_notch"
-)
-if (length(spatial_notch_sheet_idx) != 1) {
-  stop("Cannot find required worksheet: spatial_notch")
-}
-
-boot_spatial_notch <- read.xlsx(
-  boot_sheets_paths,
-  sheet = spatial_notch_sheet_idx
-)
-
-boot_spatial_notch$syn_type <- factor(
-  boot_spatial_notch$syn_type,
-  levels = c("pre", "post"),
-  labels = c("Presynapse", "Postsynapse")
-)
-
-spatial_notch_splits <- c(
-  "Notch On_intrinsic",
-  "Notch Off_intrinsic",
-  "Notch On_projection",
-  "Notch Off_projection"
-)
-spatial_notch_neuropils <- c("ME_R", "LO_R", "LOP_R")
-
-Y6_split <- Filter(
-  Negate(is.null),
-  unlist(
-    lapply(spatial_notch_splits, function(split_name) {
-      lapply(spatial_notch_neuropils, function(neuropil_name) {
-        has_panel_data <- any(
-          boot_spatial_notch$split == split_name &
-            boot_spatial_notch$neuropil == neuropil_name,
-          na.rm = TRUE
-        )
-        if (!has_panel_data) {
-          message(
-            "Skipping empty spatial Notch panel: ",
-            split_name,
-            " / ",
-            neuropil_name
-          )
-          return(NULL)
-        }
-        dsplot(
-          boot_spatial_notch,
-          neuropil_name,
-          split_name,
-          ylab = ifelse(
-            grepl("^LO", neuropil_name),
-            "Deep Superficial Bias\n(+: Superficial / -: Deep)",
-            "Deep / Superficial Bias\n(+: Distal / -: Proximal)"
-          )
-        )
-      })
-    }),
-    recursive = FALSE
-  )
-)
-
-if (length(Y6_split) > 0) {
-  Y6_split_p <- wrap_plots(Y6_split, ncol = 3) +
-    plot_annotation(tag_levels = 'a') &
-    theme(plot.tag = element_text(size = 9))
-
-  ggsave(
-    filename = file.path(out_dir, "Supp_fig_Y6_split.pdf"),
-    plot = Y6_split_p,
-    width = 8.5,
-    height = 11
-  )
-} else {
-  message("Skipping Supp_fig_Y6_split.pdf: no spatial Notch panels have data")
-}

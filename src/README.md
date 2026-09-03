@@ -55,6 +55,27 @@ Rscript src/manual_visualize.r \
 - Configuration: uses hardcoded paths/parameters in the script (edit `argvs` block to customize)
 - Outputs: PDFs and legend PDFs under `int/lc_lplc_dev_origin/`
 
+### `src/manual_c59_vs_c82.R`
+
+- Purpose: validate the adult `toy+/ham+/D-/Vsx1-` main-OPC cluster assignment
+  and visualize the distinction between clusters 59 and 82.
+- Key inputs: the adult Seurat object and adult ScMarco modeled-expression
+  matrix; cluster identifiers are read as numeric `FinalIdents`.
+- Selection: main-OPC clusters with an adult ScMarco score greater than 0.5
+  for either `toy` or `ham`.
+- Normalization: selected cells are explicitly re-normalized from `RNA` counts
+  with Seurat `LogNormalize` and a scale factor of 10,000.
+- Outputs: stacked violin and dot-plot PDFs, an all-main-OPC ScMarco audit,
+  normalized expression summaries, c59-versus-c82 Wilcoxon tests, and a text
+  validation report under `int/c59_vs_c82/`.
+
+```bash
+Rscript src/manual_c59_vs_c82.R
+```
+
+The adult object is approximately 3.6 GB. Run the script in a Slurm allocation
+with at least 32 GB of memory. Use `--help` to see path and analysis overrides.
+
 ## Top-level helper scripts
 
 ### `src/get_selectors.R`
